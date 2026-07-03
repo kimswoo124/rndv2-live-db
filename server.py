@@ -334,7 +334,7 @@ def postgres_product_card(row: dict[str, Any]) -> dict[str, Any]:
     product_id = str(row.get("product_id") or "")
     local_card = local_product_card(product_id)
     final = postgres_final_from_row(row)
-    assets = product_assets_for_id(product_id)
+    assets = merged_product_assets(product_id, row)
     representative = pick_representative_asset(assets)
     ownership = local_card.get("ownership") if local_card else ""
     ownership = ownership or normalize_ownership_value(final.get("ownership") if isinstance(final, dict) else "") or normalize_ownership_value(row.get("site")) or "competitor"
@@ -400,6 +400,56 @@ def product_assets_for_id(product_id: str) -> list[dict[str, Any]]:
         return []
 
 
+def db_image_assets(row: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = ensure_json_object(row.get("db_image_urls"))
+    assets: list[dict[str, Any]] = []
+    if isinstance(raw, dict):
+        for index, (view, url) in enumerate(raw.items()):
+            if not url:
+                continue
+            view_name = str(view or f"image_{index + 1}")
+            assets.append(
+                {
+                    "asset_id": f"db_{view_name}",
+                    "asset_kind": "db",
+                    "view_name": view_name,
+                    "view": view_name,
+                    "file_name": view_name,
+                    "name": view_name,
+                    "url": str(url),
+                    "public_url": str(url),
+                }
+            )
+    rep_url = row.get("db_representative_image_url") or ""
+    if rep_url and all((asset.get("public_url") or asset.get("url")) != rep_url for asset in assets):
+        assets.insert(
+            0,
+            {
+                "asset_id": "db_representative",
+                "asset_kind": "db",
+                "view_name": "representative",
+                "view": "representative",
+                "file_name": "representative",
+                "name": "representative",
+                "url": str(rep_url),
+                "public_url": str(rep_url),
+            },
+        )
+    return assets
+
+
+def merged_product_assets(product_id: str, row: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for asset in [*(db_image_assets(row or {}) if row else []), *product_assets_for_id(product_id)]:
+        url = str(asset.get("public_url") or asset.get("url") or "")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        merged.append(asset)
+    return merged
+
+
 def postgres_tags(row: dict[str, Any], ownership: str, final: dict[str, Any]) -> list[str]:
     tags = [ownership_label(ownership)]
     for value in [postgres_last_name(final), row.get("site"), row.get("brand"), row.get("sku")]:
@@ -445,7 +495,13 @@ def postgres_run_detail(run_id: str) -> dict[str, Any]:
     schema = pg_schema()
     row = postgres_fetchone(
         f"""
-        SELECT a.*, p.brand, p.product_name, p.display_name
+        SELECT
+            a.*,
+            p.brand,
+            p.product_name,
+            p.display_name,
+            p.representative_image_url AS db_representative_image_url,
+            p.image_urls AS db_image_urls
         FROM {schema}.rnd_analyses a
         LEFT JOIN {schema}.rnd_products p USING(product_id)
         WHERE a.analysis_id = %s
@@ -472,7 +528,7 @@ def postgres_knowledge_index(q: str, brand: str, ownership: str, status: str) ->
 def postgres_run_payload(row: dict[str, Any]) -> dict[str, Any]:
     product_id = str(row.get("product_id") or "")
     final = postgres_final_from_row(row)
-    assets = product_assets_for_id(product_id)
+    assets = merged_product_assets(product_id, row)
     return {
         "run_id": row.get("analysis_id") or "",
         "product_id": product_id,
