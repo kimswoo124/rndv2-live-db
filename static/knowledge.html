@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R&D Knowledge Explorer</title>
+<style>
+@font-face{font-family:Pretendard;src:url("/dashboard-assets/fonts/PretendardVariable.woff2") format("woff2");font-weight:100 900;font-display:swap}
+:root{--bg:#0f1115;--panel:#171b22;--panel2:#202733;--line:#2c333f;--text:#edf1f7;--muted:#9aa6b5;--sub:#667385;--green:#78d89b;--blue:#5aa7ff;--cyan:#67d4e8;--amber:#e8ba62;--red:#e56f6a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Pretendard,"Apple SD Gothic Neo",sans-serif;font-size:13px;letter-spacing:0}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.shell{min-height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr)}
+.top{border-bottom:1px solid var(--line);background:#11151b;padding:14px 18px;display:grid;grid-template-columns:minmax(260px,1fr) minmax(480px,1.6fr) auto;gap:14px;align-items:center}
+.title{display:flex;align-items:center;gap:10px;min-width:0}
+.title h1{font-size:18px;margin:0;font-weight:950;white-space:nowrap}
+.mode{font-size:10px;color:var(--green);border:1px solid rgba(120,216,155,.42);background:rgba(120,216,155,.09);border-radius:999px;padding:3px 8px;font-weight:900}
+.header-owner-switch{display:inline-grid;grid-template-columns:repeat(3,auto);gap:4px;margin-left:2px}
+.header-owner-switch button{height:26px;border:1px solid var(--line);background:#171d26;color:var(--muted);border-radius:999px;padding:0 9px;font-size:10px;font-weight:950;white-space:nowrap}
+.header-owner-switch button.active{border-color:var(--cyan);background:rgba(103,212,232,.13);color:var(--text)}
+.controls{display:grid;grid-template-columns:minmax(180px,1fr) 140px 112px 96px;gap:8px}
+.controls input,.controls select,.controls button,.link-btn{height:34px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:7px;padding:0 10px;outline:none;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-weight:850}
+.controls .hidden-control{display:none}
+.controls input:focus,.controls select:focus,.controls button:focus{border-color:var(--blue)}
+.controls button.active{border-color:var(--blue);background:rgba(90,167,255,.18)}
+.link-btn{color:var(--cyan);white-space:nowrap}
+.main{min-height:0;padding:14px;display:grid;gap:12px}
+.knowledge-map{display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;min-height:calc(100vh - 92px)}
+.map-search{border:1px solid rgba(255,255,255,.09);background:#141922;border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
+.map-search-title{display:grid;gap:2px;min-width:128px}
+.map-search-title strong{font-size:12px}
+.map-search-title span{font-size:10px;color:var(--muted);font-weight:850}
+.map-tools{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center}
+.ownership-tabs{display:inline-grid;grid-template-columns:repeat(3,auto);gap:6px}
+.owner-tab{height:32px;border:1px solid var(--line);background:#1a202a;color:var(--muted);border-radius:999px;padding:0 12px;font-weight:950;font-size:11px;white-space:nowrap}
+.owner-tab:hover,.owner-tab.active{border-color:var(--cyan);background:rgba(103,212,232,.12);color:var(--text)}
+.part-searches{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px}
+.part-searches input{height:32px;border:1px solid var(--line);background:#10151d;color:var(--text);border-radius:7px;padding:0 10px;outline:none;font-weight:800}
+.part-searches input:focus{border-color:var(--blue)}
+.search-strip{display:flex;gap:8px;overflow:auto;padding-bottom:2px}
+.search-chip{min-width:170px;max-width:260px;border:1px solid var(--line);background:#1b222d;color:var(--text);border-radius:8px;padding:8px 9px;display:grid;gap:4px;text-align:left}
+.search-chip:hover,.search-chip.active{border-color:var(--blue);background:#202a37}
+.search-chip strong{font-size:11px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-chip span{font-size:10px;line-height:1.35;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mindmap{position:relative;min-height:calc(100vh - 156px);overflow:hidden;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:#10151d}
+.mindmap::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:34px 34px;opacity:.38;pointer-events:none}
+.map-connectors{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.map-connectors path{fill:none;stroke:rgba(103,212,232,.52);stroke-width:1.35;stroke-linecap:round;stroke-dasharray:7 9;animation:pathIn .18s ease-out both}
+.map-connectors path.secondary{stroke:rgba(154,166,181,.22);stroke-width:1;stroke-dasharray:2 8}
+.map-board{position:relative;z-index:2;display:grid;grid-template-columns:190px minmax(260px,.68fr) minmax(240px,.62fr) minmax(660px,1.7fr);gap:24px;min-height:100%;padding:22px;align-items:center}
+.map-lane{min-width:0;display:grid;gap:10px;align-content:center;max-height:calc(100vh - 198px);overflow:auto;padding:2px 0 8px;scrollbar-width:thin;animation:depthIn .26s ease both}
+.map-lane:nth-child(3){animation-delay:.03s}
+.map-lane:nth-child(4){animation-delay:.06s}
+.map-lane:nth-child(5){animation-delay:.09s}
+.lane-product{align-content:center}
+.lane-detail{align-content:stretch;min-width:0}
+.lane-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px;font-weight:950;letter-spacing:0;text-transform:uppercase;padding:0 6px}
+.mind-node{position:relative;width:100%;border:1px solid rgba(148,163,184,.18);background:rgba(23,29,39,.86);color:var(--text);border-radius:999px;padding:9px 13px;display:grid;gap:4px;text-align:left;min-height:46px;transition:border-color .2s ease,background .2s ease,transform .2s ease,opacity .2s ease,box-shadow .2s ease;box-shadow:0 12px 36px rgba(0,0,0,.18)}
+.mind-node:hover,.mind-node.active{border-color:rgba(103,212,232,.82);background:#202936;transform:translateY(-1px);box-shadow:0 18px 48px rgba(0,0,0,.26),0 0 0 1px rgba(103,212,232,.1)}
+.mind-node:not(.active){opacity:.82}
+.mind-node strong{font-size:12px;line-height:1.25;overflow-wrap:anywhere}
+.mind-node small{font-size:10px;line-height:1.35;color:var(--muted);overflow-wrap:anywhere}
+.mind-node .count{position:absolute;right:10px;top:8px;color:var(--sub);font-size:10px;font-weight:900}
+.product-hub{border-radius:12px;padding:12px;grid-template-columns:78px minmax(0,1fr);grid-auto-flow:column;align-items:center;min-height:94px;background:#18222e;border-color:rgba(232,186,98,.42)}
+.product-hub.active{border-color:var(--amber);box-shadow:0 0 0 1px rgba(232,186,98,.16),0 20px 60px rgba(0,0,0,.3)}
+.product-node{grid-template-columns:54px minmax(0,1fr);grid-auto-flow:column;align-items:center;min-height:64px;padding:8px 10px;border-radius:12px}
+.hero-ai-labels{display:flex;gap:0;margin-top:8px;border:1px solid rgba(255,255,255,.08);border-radius:7px;overflow:hidden}
+.hero-ai-label{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;border-right:1px solid rgba(255,255,255,.08)}
+.hero-ai-label:last-child{border-right:none}
+.hero-ai-label span{font-size:8.5px;color:var(--sub);line-height:1;font-weight:900;letter-spacing:.3px}
+.hero-ai-label b{font-size:11px;font-weight:900;color:var(--amber);line-height:1.2}
+.product-node.active{border-color:var(--amber);background:#202936;box-shadow:0 0 0 1px rgba(232,186,98,.14),0 18px 48px rgba(0,0,0,.26)}
+.product-thumb{width:64px;height:48px;border:1px solid rgba(255,255,255,.12);background:#f3f5f7;border-radius:7px;overflow:hidden;display:grid;place-items:center;color:#697386;font-size:10px;font-weight:950}
+.product-thumb img{width:100%;height:100%;display:block;object-fit:contain}
+.product-node .product-thumb{width:54px;height:42px}
+.product-hub .product-thumb{width:78px;height:58px}
+.product-copy{min-width:0;display:grid;gap:4px}
+.product-copy strong,.product-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.section-node{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-radius:12px}
+.field-node{grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:8px 11px;border-radius:12px;min-height:58px}
+.field-node[data-focused="true"]{border-color:var(--cyan);background:rgba(103,212,232,.13)}
+.field-node-copy{min-width:0;display:grid;gap:3px}
+.field-node-copy strong,.field-node-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-node-badges{display:grid;gap:4px;justify-items:end;align-content:center;min-width:76px}
+.attribute-workspace{display:grid;grid-template-columns:minmax(230px,.42fr) minmax(320px,.58fr);gap:12px;align-items:start;min-height:0}
+.field-stack{display:grid;gap:8px;align-content:start;max-height:calc(100vh - 388px);overflow:auto;padding-right:2px}
+.detail-scroll{display:grid;gap:10px;align-content:start;min-width:0}
+.hero{border:1px solid rgba(103,212,232,.32);background:#18212b;border-radius:8px;padding:12px;display:grid;grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto auto;gap:12px 12px;align-items:center}
+.hero-ai-labels{grid-column:1/-1;grid-row:2}
+.hero-image{width:72px;height:56px;border:1px solid rgba(255,255,255,.13);background:#f5f6f8;border-radius:8px;overflow:hidden;display:grid;place-items:center;color:#647084;font-size:10px;font-weight:950}
+.hero-image img{width:100%;height:100%;display:block;object-fit:contain}
+.hero-copy{min-width:0;display:grid;gap:5px}
+.hero strong{color:var(--cyan);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero h2{margin:0;font-size:18px;line-height:1.25;overflow-wrap:anywhere}
+.hero p{margin:0;color:#d9e1ea;line-height:1.45;font-size:11px}
+.field-detail{position:sticky;top:0;max-height:calc(100vh - 388px);overflow:auto;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);border-radius:8px;padding:12px;display:grid;gap:8px;animation:fadeSlide .18s ease-out;box-shadow:0 16px 42px rgba(0,0,0,.16)}
+.field-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:900}
+.field-title span:first-child{min-width:0;overflow-wrap:anywhere}
+.field-value{font-size:14px;line-height:1.45;color:#eef3f8;overflow-wrap:anywhere}
+.field-meta{display:flex;flex-wrap:wrap;gap:5px}
+.field-title .field-meta{flex:0 0 auto;justify-content:flex-end}
+.depth-empty{min-height:150px;display:grid;place-items:center;color:var(--muted);text-align:center;line-height:1.6;padding:16px}
+.group-title{display:flex;justify-content:space-between;gap:10px;color:var(--cyan);font-size:11px;font-weight:950;padding:2px 1px}
+.detail{font-size:11px;color:var(--muted);line-height:1.55;white-space:pre-wrap}
+.pill{min-height:20px;display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:2px 7px;color:#aaa89c;background:rgba(255,255,255,.035);max-width:100%;font-size:11px;line-height:1.25}
+.pill.internal{color:var(--cyan);border-color:rgba(103,212,232,.34)}
+.pill.competitor{color:var(--amber);border-color:rgba(232,186,98,.34)}
+.pill.conf-high{color:var(--green);border-color:rgba(120,216,155,.32)}
+.pill.conf-mid{color:var(--amber);border-color:rgba(232,186,98,.34)}
+.pill.conf-low{color:var(--red);border-color:rgba(229,111,106,.36)}
+.pill.detected,.pill.visual_observation{color:var(--green);border-color:rgba(120,216,155,.32)}
+.pill.estimated_from_visual,.pill.inferred_from_guideline{color:var(--amber);border-color:rgba(232,186,98,.34)}
+.pill.external_research{color:var(--cyan);border-color:rgba(103,212,232,.34)}
+.pill.needs_sample_measurement,.pill.recheck,.pill.not_found{color:var(--red);border-color:rgba(229,111,106,.36)}
+mark{background:rgba(232,186,98,.24);color:var(--amber);border-radius:4px;padding:0 2px}
+.graph{height:calc(100vh - 92px);border:1px solid var(--line);background:#0b0f15;border-radius:8px;overflow:hidden;position:relative}
+.graph svg{width:100%;height:100%;display:block}
+.graph-fallback{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);line-height:1.7}
+.graph-link{stroke:rgba(148,163,184,.28);stroke-width:1.2}
+.graph-node{cursor:pointer}
+.graph-link.dim,.graph-node.dim{opacity:.14}
+.graph-label{font-size:10px;fill:#dce6f1;pointer-events:none}
+.empty{min-height:220px;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;line-height:1.7}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes depthIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pathIn{from{opacity:0}to{opacity:1}}
+@media (max-width:1320px){.map-board{grid-template-columns:165px minmax(230px,.62fr) minmax(215px,.58fr) minmax(600px,1.6fr);gap:18px}.attribute-workspace{grid-template-columns:minmax(210px,.42fr) minmax(300px,.58fr)}}
+@media (max-width:1100px){.top{grid-template-columns:1fr}.controls{grid-template-columns:1fr 1fr 1fr}.knowledge-map{min-height:auto}.map-search,.map-tools{grid-template-columns:1fr}.part-searches{grid-template-columns:1fr 1fr}.mindmap{overflow:auto;min-height:70vh}.map-board{grid-template-columns:1fr;align-items:start}.map-connectors{display:none}.map-lane{max-height:none}.attribute-workspace{grid-template-columns:1fr}.field-stack,.field-detail{max-height:none}.field-detail{position:relative}.graph{height:70vh}}
+@media (max-width:640px){.controls{grid-template-columns:1fr 1fr}.controls input{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="title">
+      <h1>R&D Knowledge Explorer</h1>
+      <span class="mode" id="mode">LOCAL</span>
+      <span class="header-owner-switch" id="headerOwnership">
+        <button type="button" data-header-owner-filter="">전체</button>
+        <button type="button" data-header-owner-filter="internal">자사</button>
+        <button type="button" data-header-owner-filter="competitor">타사</button>
+      </span>
+    </div>
+    <div class="controls">
+      <input id="search" type="search" placeholder="제품, 브랜드, 속성, 값, 근거 검색">
+      <select id="ownership" class="hidden-control" aria-hidden="true" tabindex="-1">
+        <option value="">전체 구분</option>
+        <option value="internal">자사</option>
+        <option value="competitor">타사</option>
+      </select>
+      <select id="brand"><option value="">전체 브랜드</option></select>
+      <select id="status">
+        <option value="">전체 상태</option>
+        <option value="complete">분석 완료</option>
+        <option value="not_analyzed">미분석</option>
+        <option value="error">오류</option>
+      </select>
+      <button id="viewToggle" type="button">Graph</button>
+    </div>
+    <a class="link-btn" href="/">Products Viewer</a>
+  </header>
+  <main class="main" id="main"><div class="empty">R&D 지식 인덱스를 불러오는 중입니다.</div></main>
+</div>
+<script src="/static/supabase-config.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script>
+const state={mode:"local",view:"knowledge",index:null,indexSignature:"",brandSignature:"",selected:null,field:null,section:null,selectedOwnership:null,selectedBrand:null,graphFocus:null,partSearch:{brand:"",product:"",section:"",attribute:""},activePartSearch:null,pendingProductLaneScroll:null};
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+const text=value=>Array.isArray(value)?value.map(text).join(" / "):(value&&typeof value==="object"?JSON.stringify(value):String(value??""));
+
+init();
+
+async function init(){
+  $("search").addEventListener("input",debounce(()=>render(),120));
+  $("ownership").addEventListener("change",loadIndex);
+  $("headerOwnership").addEventListener("click",event=>{
+    const button=event.target.closest("[data-header-owner-filter]");
+    if(!button) return;
+    selectOwnershipFilter(button.dataset.headerOwnerFilter||"");
+  });
+  $("brand").addEventListener("change",loadIndex);
+  $("status").addEventListener("change",loadIndex);
+  $("viewToggle").addEventListener("click",()=>{state.view=state.view==="knowledge"?"graph":"knowledge"; $("viewToggle").textContent=state.view==="knowledge"?"Graph":"Depth"; render();});
+  window.addEventListener("resize",debounce(drawMindmapConnectors,120));
+  $("main").addEventListener("input",event=>{
+    const input=event.target.closest("[data-part-search]");
+    if(!input) return;
+    state.partSearch[input.dataset.partSearch]=input.value;
+    state.activePartSearch={key:input.dataset.partSearch,pos:input.selectionStart||input.value.length};
+    render();
+  });
+  $("main").addEventListener("click",event=>{
+    const ownerFilter=event.target.closest("[data-owner-filter]");
+    if(ownerFilter){selectOwnershipFilter(ownerFilter.dataset.ownerFilter||""); return;}
+    const ownership=event.target.closest("[data-ownership]");
+    if(ownership){selectOwnership(ownership.dataset.ownership||""); return;}
+    const brand=event.target.closest("[data-brand]");
+    if(brand){selectBrand(brand.dataset.brand||""); return;}
+    const product=event.target.closest("[data-product]");
+    if(product){selectProduct(product.dataset.product,product.dataset.field||"",product.dataset.section||""); return;}
+    const section=event.target.closest("[data-section]");
+    if(section){selectSection(section.dataset.section||""); return;}
+    const scope=event.target.closest("[data-scope]");
+    if(scope){selectScope(scope.dataset.scope,scope.dataset.value||"");}
+  });
+  await loadStatus();
+  await loadIndex();
+  if(state.mode!=="postgres"){
+    setInterval(()=>loadIndex({silent:true}),10000);
+  }
+}
+
+async function loadStatus(){
+  try{
+    const data=await api("/api/status");
+    state.mode=data.mode||"local";
+    $("mode").textContent=state.mode.toUpperCase();
+  }catch(err){
+    $("mode").textContent="OFFLINE";
+  }
+}
+
+async function loadIndex(options={}){
+  const params=new URLSearchParams();
+  if($("ownership").value) params.set("ownership",$("ownership").value);
+  if($("brand").value) params.set("brand",$("brand").value);
+  if($("status").value) params.set("status",$("status").value);
+  try{
+    const nextIndex=await api(`/api/knowledge-index?${params.toString()}`);
+    const nextSignature=knowledgeSignature(nextIndex);
+    if(options.silent&&nextSignature===state.indexSignature) return;
+    state.index=nextIndex;
+    state.indexSignature=nextSignature;
+    fillBrandFilter();
+    updateHeaderOwnershipSwitch();
+    if(!state.selected&&state.index.products?.[0]) state.selected=state.index.products[0].product_id;
+    render();
+  }catch(err){
+    if(!options.silent) $("main").innerHTML=`<div class="empty">Knowledge Index를 불러오지 못했습니다.<br>${esc(err.message||err)}</div>`;
+  }
+}
+
+function fillBrandFilter(){
+  const select=$("brand");
+  const current=select.value;
+  const brands=state.index?.facets?.brands||[];
+  const signature=brands.join("\n");
+  if(signature===state.brandSignature) return;
+  state.brandSignature=signature;
+  select.innerHTML='<option value="">전체 브랜드</option>'+brands.map(brand=>`<option value="${esc(brand)}">${esc(brand)}</option>`).join("");
+  if(brands.includes(current)) select.value=current;
+}
+
+function render(){
+  if(!state.index){$("main").innerHTML='<div class="empty">R&D 지식 인덱스를 불러오는 중입니다.</div>';return;}
+  if(state.view==="graph"){renderGraph();return;}
+  const query=$("search").value.trim();
+  const products=filterProducts(query);
+  const selected=syncSelection(products);
+  const searchItems=filterSearchItems(query,products);
+  $("main").innerHTML=renderMindmap(products,selected,searchItems,query);
+  requestAnimationFrame(()=>{restoreProductLaneScroll();drawMindmapConnectors();scrollFocusedField();restorePartSearchFocus();});
+}
+
+function syncSelection(products){
+  if(!products.length){state.selected=null;state.field=null;state.section=null;return null;}
+  let selected=products.find(product=>product.product_id===state.selected);
+  const ownerships=[...new Set(products.map(product=>product.ownership||"competitor"))];
+  if(!state.selectedOwnership||!ownerships.includes(state.selectedOwnership)){
+    state.selectedOwnership=selected?.ownership||ownerships[0]||"competitor";
+  }
+  const ownershipProducts=products.filter(product=>(product.ownership||"competitor")===state.selectedOwnership);
+  const brands=[...new Set(ownershipProducts.map(product=>product.brand||"브랜드 미상"))];
+  if(!state.selectedBrand||!brands.includes(state.selectedBrand)){
+    state.selectedBrand=selected&&selected.ownership===state.selectedOwnership?selected.brand:brands[0];
+  }
+  const brandProducts=ownershipProducts.filter(product=>(product.brand||"브랜드 미상")===state.selectedBrand);
+  if(!selected||selected.ownership!==state.selectedOwnership||selected.brand!==state.selectedBrand){
+    selected=brandProducts[0]||ownershipProducts[0]||products[0];
+    state.selected=selected?.product_id||null;
+    state.field=null;
+  }
+  if(selected){
+    const sections=selected.sections||[];
+    if(!state.section||!sections.some(section=>section.name===state.section)){
+      state.section=sections[0]?.name||null;
+      state.field=null;
+    }
+    if(state.field&&!sections.some(section=>section.fields.some(field=>field.key===state.field))){
+      state.field=null;
+    }
+  }
+  return selected||null;
+}
+
+function renderMindmap(products,selected,searchItems,query){
+  const ownerships=buildOwnershipGroups(products);
+  const owner=ownerships.find(item=>item.id===state.selectedOwnership)||ownerships[0]||null;
+  const brands=filterBrands(owner?.brands||[]);
+  const brand=brands.find(item=>item.label===state.selectedBrand)||brands[0]||null;
+  const brandProducts=filterProductNodes(brand?.products||[]);
+  let displaySelected=selected;
+  if(brand&&displaySelected&&(displaySelected.brand||"브랜드 미상")!==brand.label) displaySelected=brandProducts[0]||brand.products[0]||displaySelected;
+  if(brandProducts.length&&!brandProducts.some(product=>product.product_id===displaySelected?.product_id)) displaySelected=brandProducts[0];
+  if(displaySelected&&displaySelected.product_id!==state.selected){
+    state.selected=displaySelected.product_id;
+    state.field=null;
+    state.section=null;
+  }
+  const sections=filterSections(displaySelected?.sections||[]);
+  if(partNeedle("attribute")){
+    const currentSection=sections.find(section=>section.name===state.section);
+    if(!currentSection||!filterFields(currentSection.fields).length){
+      const matchedSection=sections.find(section=>filterFields(section.fields).length);
+      if(matchedSection) state.section=matchedSection.name;
+    }
+  }
+  const activeSection=sections.find(section=>section.name===state.section)||sections[0]||null;
+  const activeFields=filterFields(activeSection?.fields||[]);
+  if(brand&&state.selectedBrand!==brand.label) state.selectedBrand=brand.label;
+  if(activeSection&&state.section!==activeSection.name){state.section=activeSection.name;state.field=null;}
+  if(activeFields.length&&!activeFields.some(field=>field.key===state.field)) state.field=activeFields[0].key;
+  if(!activeFields.length) state.field=null;
+  return `<div class="knowledge-map">
+    <section class="map-search">
+      <div class="map-search-title"><strong>파트별 검색</strong><span>${products.length} styles · ${searchItems.length} index</span></div>
+      <div class="map-tools">
+        ${renderOwnershipTabs(products)}
+        ${renderPartSearches()}
+      </div>
+    </section>
+    <section class="mindmap" aria-label="R&D knowledge depth map">
+      <svg class="map-connectors" id="mapConnectors" aria-hidden="true"></svg>
+      <div class="map-board">
+        ${renderBrandColumn(brands)}
+        ${renderProductColumn(brandProducts,displaySelected)}
+        ${renderSectionColumn(sections)}
+        ${renderDepthDetail(displaySelected,activeSection,activeFields,query)}
+      </div>
+    </section>
+  </div>`;
+}
+
+function renderOwnershipTabs(products){
+  const counts={internal:0,competitor:0};
+  products.forEach(product=>{counts[product.ownership||"competitor"]=(counts[product.ownership||"competitor"]||0)+1;});
+  const current=$("ownership").value||"";
+  const tabs=[
+    {value:"",label:"전체",count:products.length},
+    {value:"internal",label:"자사",count:counts.internal||0},
+    {value:"competitor",label:"타사",count:counts.competitor||0}
+  ];
+  return `<div class="ownership-tabs">${tabs.map(tab=>`<button class="owner-tab ${tab.value===current?"active":""}" data-owner-filter="${esc(tab.value)}">${esc(tab.label)} ${tab.count}</button>`).join("")}</div>`;
+}
+
+function renderPartSearches(){
+  const value=key=>esc(state.partSearch[key]||"");
+  return `<div class="part-searches">
+    <input data-part-search="brand" value="${value("brand")}" placeholder="브랜드 검색">
+    <input data-part-search="product" value="${value("product")}" placeholder="제품 검색">
+    <input data-part-search="section" value="${value("section")}" placeholder="섹션 검색">
+    <input data-part-search="attribute" value="${value("attribute")}" placeholder="속성·근거 검색">
+  </div>`;
+}
+
+function partNeedle(key){return String(state.partSearch[key]||"").trim().toLowerCase();}
+function filterBrands(brands){
+  const needle=partNeedle("brand");
+  if(!needle) return brands;
+  return brands.filter(brand=>brand.label.toLowerCase().includes(needle));
+}
+function filterProductNodes(products){
+  const needle=partNeedle("product");
+  if(!needle) return products;
+  return products.filter(product=>[
+    product.product_id,product.product_name,product.display_name,product.brand,product.sku,product.color,product.category,product.season,product.project_code,product.last_name
+  ].map(value=>String(value||"")).join(" ").toLowerCase().includes(needle));
+}
+function filterSections(sections){
+  const needle=partNeedle("section");
+  if(!needle) return sections;
+  return sections.filter(section=>[section.name,section.label].join(" ").toLowerCase().includes(needle));
+}
+function filterFields(fields){
+  const needle=partNeedle("attribute");
+  if(!needle) return fields;
+  return fields.filter(field=>[
+    field.key,field.label,fieldLabel(field.key,field.label),text(field.value),text(field.evidence),text(field.notes),field.status,field.source
+  ].join(" ").toLowerCase().includes(needle));
+}
+
+function buildOwnershipGroups(products){
+  const order={internal:0,competitor:1};
+  const groups=new Map();
+  products.forEach(product=>{
+    const owner=product.ownership||"competitor";
+    if(!groups.has(owner)) groups.set(owner,{id:owner,label:product.ownership_label||ownershipLabel(owner),products:[],brandsMap:new Map()});
+    const group=groups.get(owner);
+    const brand=product.brand||"브랜드 미상";
+    group.products.push(product);
+    if(!group.brandsMap.has(brand)) group.brandsMap.set(brand,{label:brand,products:[]});
+    group.brandsMap.get(brand).products.push(product);
+  });
+  return [...groups.values()].sort((a,b)=>(order[a.id]??9)-(order[b.id]??9)||a.label.localeCompare(b.label,"ko")).map(group=>({
+    ...group,
+    brands:[...group.brandsMap.values()].sort((a,b)=>a.label.localeCompare(b.label,"ko"))
+  }));
+}
+
+function renderOwnershipColumn(ownerships){
+  return `<div class="map-lane lane-owner">
+    <div class="lane-title"><span>01 구분</span><span>${ownerships.length}</span></div>
+    ${ownerships.length?ownerships.map(owner=>`<button class="mind-node ${owner.id===state.selectedOwnership?"active":""}" data-ownership="${esc(owner.id)}" ${owner.id===state.selectedOwnership?'data-map-node="ownership"':""}>
+      <strong>${esc(owner.label)}</strong><small>${owner.brands.length} brands · ${owner.products.length} styles</small><span class="count">${owner.products.length}</span>
+    </button>`).join(""):'<div class="depth-empty">표시할 구분이 없습니다.</div>'}
+  </div>`;
+}
+
+function renderBrandColumn(brands){
+  return `<div class="map-lane lane-brand">
+    <div class="lane-title"><span>01 브랜드</span><span>${brands.length}</span></div>
+    ${brands.length?brands.map(brand=>`<button class="mind-node ${brand.label===state.selectedBrand?"active":""}" data-brand="${esc(brand.label)}" ${brand.label===state.selectedBrand?'data-map-node="brand"':""}>
+      <strong>${esc(brand.label)}</strong><small>${brand.products.length} styles</small><span class="count">${brand.products.length}</span>
+    </button>`).join(""):'<div class="depth-empty">브랜드가 없습니다.</div>'}
+  </div>`;
+}
+
+function renderProductColumn(products,selected){
+  const visibleProducts=products.length?products: selected?[selected]:[];
+  return `<div class="map-lane lane-product">
+    <div class="lane-title"><span>02 제품 허브</span><span>${products.length}</span></div>
+    ${visibleProducts.length?visibleProducts.map(product=>`<button class="mind-node product-node ${product.product_id===state.selected?"active":""}" data-product="${esc(product.product_id)}" ${product.product_id===state.selected?'data-map-node="product"':""}>
+      ${renderProductThumb(product)}
+      <span class="product-copy"><strong>${esc(product.product_name||product.product_id)}</strong><small>${esc([product.category,product.season,product.project_code,product.last_name].filter(Boolean).join(" · ")||product.analysis_status||"")}</small><small>${product.field_count||0} attributes</small></span>
+    </button>`).join(""):'<div class="depth-empty">제품이 없습니다.</div>'}
+  </div>`;
+}
+
+function renderSectionColumn(sections){
+  return `<div class="map-lane lane-section">
+    <div class="lane-title"><span>03 분석 섹션</span><span>${sections.length}</span></div>
+    ${sections.length?sections.map(section=>`<button class="mind-node section-node ${section.name===state.section?"active":""}" data-section="${esc(section.name)}" ${section.name===state.section?'data-map-node="section"':""}>
+      <span><strong>${esc(section.label)}</strong><small>${esc(section.name)}</small></span><span class="pill">${section.field_count}개</span>
+    </button>`).join(""):'<div class="depth-empty">분석 sections 값이 없습니다.</div>'}
+  </div>`;
+}
+
+function renderDepthDetail(product,section,fields,query){
+  const activeField=fields.find(field=>field.key===state.field)||fields[0];
+  return `<div class="map-lane lane-detail">
+    <div class="lane-title"><span>04 속성 / 근거</span><span>${fields.length}</span></div>
+    <div class="detail-scroll">${product?renderDetailHero(product):'<div class="depth-empty">선택된 제품이 없습니다.</div>'}
+      ${section?`<div class="group-title"><span>${esc(section.label)}</span><span>${fields.length} attributes</span></div>`:""}
+      <div class="attribute-workspace">
+        <div class="field-stack">${fields.length?fields.map(field=>renderFieldNode(product,section,field,query)).join(""):product?'<div class="depth-empty">이 섹션에는 속성이 없습니다.</div>':""}</div>
+        ${product&&section?renderFieldDetail(section,activeField,query):""}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderDetailHero(product){
+  const meta=[product.ownership_label,product.brand,product.category,product.season,product.project_code,product.last_name].filter(Boolean).join(" · ");
+  return `<div class="hero">${renderProductThumb(product,"hero-image")}
+    <div class="hero-copy"><strong>${esc(meta)}</strong><h2>${esc(product.product_name||product.product_id)}</h2><p>${esc(compact(product.summary||"섹션과 속성을 순서대로 눌러 R&D 근거를 확인하세요.",160))}</p></div>
+    ${renderHeroAiLabels(product)}
+  </div>`;
+}
+
+function renderHeroAiLabels(product){
+  const ai=product.ai_labels||{};
+  const labels=[
+    {key:"UML",title:"Upper Material Level"},
+    {key:"TL", title:"Texture Level"},
+    {key:"LSL",title:"Line Style Level"},
+    {key:"SVL",title:"Sole Volume Level"},
+    {key:"ACL",title:"Arch Curve Level"},
+    {key:"RL", title:"Research Level"}
+  ];
+  const hasAny=labels.some(({key})=>ai[key]?.score!=null);
+  if(!hasAny) return "";
+  return `<div class="hero-ai-labels">${labels.map(({key,title})=>{
+    const score=ai[key]?.score;
+    return `<div class="hero-ai-label" title="${esc(title)}"><span>${esc(key)}</span><b>${score!=null?Number(score).toFixed(1):"—"}</b></div>`;
+  }).join("")}</div>`;
+}
+
+function renderFieldNode(product,section,field,query){
+  const focused=state.field?state.field===field.key:field===section.fields[0];
+  return `<button class="mind-node field-node ${focused?"active":""}" data-product="${esc(product.product_id)}" data-section="${esc(section.name)}" data-field="${esc(field.key)}" data-field-key="${esc(field.key)}" ${focused?'data-focused="true" data-map-node="field"':""}>
+    <span class="field-node-copy"><strong>${esc(fieldLabel(field.key,field.label))}</strong><small>${highlight(compactSpecValue(text(field.value),field.key))}</small></span>
+    <span class="field-node-badges">${field.status?`<span class="pill ${safeClassName(field.status)}">${esc(statusLabel(field.status))}</span>`:""}${field.confidence!==undefined&&field.confidence!==null?`<span class="pill conf-${confidenceClass(field.confidence)}">신뢰 ${Number(field.confidence).toFixed(2)}</span>`:""}</span>
+  </button>`;
+}
+
+function renderFieldDetail(section,field,query){
+  if(!field) return "";
+  const detail=[field.evidence?`근거: ${text(field.evidence)}`:"",field.notes?`메모: ${text(field.notes)}`:""].filter(Boolean).join("\n\n");
+  const meta=`<span class="field-meta">${field.status?`<span class="pill ${safeClassName(field.status)}">${esc(statusLabel(field.status))}</span>`:""}${field.confidence!==undefined&&field.confidence!==null?`<span class="pill conf-${confidenceClass(field.confidence)}">신뢰 ${Number(field.confidence).toFixed(2)}</span>`:""}</span>`;
+  return `<div class="field-detail">
+    <div class="field-title"><span>${esc(section.label)} / ${esc(fieldLabel(field.key,field.label))}</span>${meta}</div>
+    <div class="field-value">${highlight(compactSpecValue(text(field.value),field.key))}</div>
+    ${field.source?`<div class="field-meta"><span class="pill">${esc(sourceShort(field.source))}</span></div>`:""}
+    ${detail?`<div class="detail">${highlight(compact(detail,680))}</div>`:""}
+  </div>`;
+}
+
+function renderProductThumb(product,className="product-thumb"){
+  const url=product?.representative_image_url||product?.image_url||"";
+  const label=compact(product?.brand||product?.product_name||"이미지",12);
+  if(url) return `<span class="${className}"><img src="${esc(url)}" alt="${esc(product?.product_name||"제품 이미지")}" loading="lazy" onerror="this.closest('span').textContent='NO IMG'"></span>`;
+  return `<span class="${className}">${esc(label||"NO IMG")}</span>`;
+}
+
+function renderSearchStrip(items,products,query){
+  const productItems=products.slice(0,10).map(product=>({type:"product",product_id:product.product_id,product_name:product.product_name,brand:product.brand,ownership_label:product.ownership_label,label:product.product_name,value:[product.category,product.season,product.project_code,product.last_name].filter(Boolean).join(" · ")}));
+  const source=query?items.slice(0,24):productItems;
+  if(!source.length) return '<div class="depth-empty">검색 결과가 없습니다.</div>';
+  return source.map(item=>`<button class="search-chip ${item.product_id===state.selected&&(!item.key||item.key===state.field)?"active":""}" data-product="${esc(item.product_id)}" data-section="${esc(item.section||"")}" data-field="${esc(item.key||"")}">
+    <strong>${esc(item.label||item.product_name||item.product_id)}</strong>
+    <span>${esc([item.ownership_label,item.brand,item.product_name,item.section_label].filter(Boolean).join(" · "))}</span>
+    ${item.value?`<span>${highlight(compact(item.value,90))}</span>`:""}
+  </button>`).join("");
+}
+
+function drawMindmapConnectors(){
+  const stage=document.querySelector(".mindmap");
+  const svg=$("mapConnectors");
+  if(!stage||!svg) return;
+  const rect=stage.getBoundingClientRect();
+  const width=Math.max(1,rect.width);
+  const height=Math.max(1,rect.height);
+  svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  svg.setAttribute("width",width);
+  svg.setAttribute("height",height);
+  const node=name=>stage.querySelector(`[data-map-node="${name}"]`);
+  const point=(el,side="right")=>{
+    const box=el.getBoundingClientRect();
+    return {
+      x:side==="left"?box.left-rect.left:box.right-rect.left,
+      y:box.top-rect.top+box.height/2
+    };
+  };
+  const curve=(from,to)=>{
+    const dx=Math.max(42,Math.abs(to.x-from.x)*.5);
+    return `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} C ${(from.x+dx).toFixed(1)} ${from.y.toFixed(1)}, ${(to.x-dx).toFixed(1)} ${to.y.toFixed(1)}, ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
+  };
+  const path=(source,target,kind="")=>{
+    if(!source||!target) return "";
+    return `<path class="${kind}" d="${curve(point(source,"right"),point(target,"left"))}"></path>`;
+  };
+  const ownership=node("ownership");
+  const brand=node("brand");
+  const product=node("product");
+  const section=node("section");
+  const field=node("field");
+  const secondary=[];
+  if(product){
+    stage.querySelectorAll(".section-node:not(.active)").forEach(el=>secondary.push(path(product,el,"secondary")));
+  }
+  if(section){
+    [...stage.querySelectorAll(".field-node:not(.active)")].slice(0,10).forEach(el=>secondary.push(path(section,el,"secondary")));
+  }
+  svg.innerHTML=[
+    ...secondary,
+    path(ownership,brand),
+    path(brand,product),
+    path(product,section),
+    path(section,field)
+  ].filter(Boolean).join("");
+}
+
+function filterProducts(query){
+  const needle=query.toLowerCase();
+  if(!needle) return state.index.products||[];
+  const matched=new Set((state.index.search_items||[]).filter(item=>String(item.haystack||"").includes(needle)).map(item=>item.product_id));
+  return (state.index.products||[]).filter(product=>{
+    const base=["product_id","product_name","display_name","brand","sku","color","ownership_label","category","season","project_code","last_name"].map(key=>String(product[key]||"")).join(" ").toLowerCase();
+    return base.includes(needle)||matched.has(product.product_id);
+  });
+}
+
+function filterSearchItems(query,products){
+  const ids=new Set(products.map(product=>product.product_id));
+  const needle=query.toLowerCase();
+  return (state.index.search_items||[]).filter(item=>ids.has(item.product_id)&&(!needle||String(item.haystack||"").includes(needle))).slice(0,180);
+}
+
+function renderTree(products){
+  const visible=new Set(products.map(product=>product.product_id));
+  const rows=[];
+  (state.index.tree||[]).forEach(owner=>{
+    const ownerProducts=owner.brands.flatMap(brand=>brand.products).filter(product=>visible.has(product.product_id));
+    if(!ownerProducts.length) return;
+    rows.push(`<button class="tree-node depth-0" data-scope="ownership" data-value="${esc(owner.id)}"><span>▾</span><strong>${esc(owner.label)}</strong><span class="count">${ownerProducts.length}</span></button>`);
+    owner.brands.forEach(brand=>{
+      const brandProducts=brand.products.filter(product=>visible.has(product.product_id));
+      if(!brandProducts.length) return;
+      rows.push(`<button class="tree-node depth-1" data-scope="brand" data-value="${esc(brand.label)}"><span>▾</span><span>${esc(brand.label)}</span><span class="count">${brandProducts.length}</span></button>`);
+      brandProducts.forEach(product=>{
+        rows.push(`<button class="tree-node depth-2 ${product.product_id===state.selected?"active":""}" data-product="${esc(product.product_id)}"><span></span><span>${esc(product.product_name)}</span><span class="count">${product.field_count}</span></button>`);
+      });
+    });
+  });
+  return rows.join("")||'<div class="empty">표시할 지식 트리가 없습니다.</div>';
+}
+
+function renderSearchGroups(items,products){
+  const productItems=products.slice(0,40).map(product=>({type:"product",product_id:product.product_id,product_name:product.product_name,brand:product.brand,ownership_label:product.ownership_label,label:product.product_name,value:[product.category,product.season,product.project_code,product.last_name].filter(Boolean).join(" · ")}));
+  return `<div class="results">
+    ${renderGroup("제품",productItems)}
+    ${renderGroup("속성",items.filter(item=>item.type==="attribute").slice(0,50))}
+    ${renderGroup("근거",items.filter(item=>item.type==="evidence").slice(0,40))}
+  </div>`;
+}
+
+function renderGroup(title,items){
+  if(!items.length) return `<div class="group"><div class="group-title"><span>${esc(title)}</span><span>0</span></div><p class="detail">검색 결과가 없습니다.</p></div>`;
+  return `<div class="group"><div class="group-title"><span>${esc(title)}</span><span>${items.length}</span></div>${items.map(item=>`<button class="result ${item.product_id===state.selected&&(!item.key||item.key===state.field)?"active":""}" data-product="${esc(item.product_id)}" data-field="${esc(item.key||"")}">
+    <h3>${esc(item.label||item.product_name||item.product_id)}</h3>
+    <p>${esc([item.ownership_label,item.brand,item.product_name,item.section_label].filter(Boolean).join(" · "))}</p>
+    ${item.value?`<p>${highlight(compact(item.value,140))}</p>`:""}
+    ${item.evidence?`<p>${highlight(compact(item.evidence,180))}</p>`:""}
+  </button>`).join("")}</div>`;
+}
+
+function renderDetail(product,query){
+  const meta=[product.ownership_label,product.brand,product.category,product.season,product.project_code,product.last_name].filter(Boolean).join(" · ");
+  if(!product.sections?.length) return `<div class="hero"><strong>${esc(meta)}</strong><h2>${esc(product.product_name||product.product_id)}</h2><p>아직 분석된 sections 값이 없습니다.</p></div>`;
+  return `<div class="hero"><strong>${esc(meta)}</strong><h2>${esc(product.product_name||product.product_id)}</h2><p>${esc(compact(product.summary||"섹션을 열어 세부 속성과 근거를 확인하세요.",220))}</p></div>
+    <div class="sections">${product.sections.map(section=>`<details class="section" open>
+      <summary><span>${esc(section.label)}</span><span class="pill">${section.field_count}개 항목</span></summary>
+      ${section.fields.map(field=>renderField(field,query)).join("")}
+    </details>`).join("")}</div>`;
+}
+
+function renderField(field,query){
+  const focused=state.field&&state.field===field.key;
+  const detail=[field.evidence?`근거: ${text(field.evidence)}`:"",field.notes?`메모: ${text(field.notes)}`:""].filter(Boolean).join("\n\n");
+  return `<div class="field" data-field-key="${esc(field.key)}" ${focused?'data-focused="true"':""}>
+    <div class="field-title"><span>${esc(fieldLabel(field.key,field.label))}</span>${field.confidence!==undefined&&field.confidence!==null?`<span class="pill conf-${confidenceClass(field.confidence)}">신뢰 ${Number(field.confidence).toFixed(2)}</span>`:""}</div>
+    <div class="field-value">${highlight(compactSpecValue(text(field.value),field.key))}</div>
+    <div class="field-meta">${field.status?`<span class="pill ${safeClassName(field.status)}">${esc(statusLabel(field.status))}</span>`:""}${field.source?`<span class="pill">${esc(sourceShort(field.source))}</span>`:""}</div>
+    ${detail?`<div class="detail">${highlight(compact(detail,680))}</div>`:""}
+  </div>`;
+}
+
+function selectOwnership(ownership){
+  state.selectedOwnership=ownership;
+  state.selectedBrand=null;
+  state.selected=null;
+  state.field=null;
+  state.section=null;
+  render();
+}
+
+function selectBrand(brand){
+  state.selectedBrand=brand;
+  state.selected=null;
+  state.field=null;
+  state.section=null;
+  render();
+}
+
+function selectSection(section){
+  state.section=section;
+  state.field=null;
+  render();
+}
+
+function selectProduct(productId,field="",section=""){
+  const product=(state.index?.products||[]).find(item=>item.product_id===productId);
+  const productLane=document.querySelector(".lane-product");
+  state.pendingProductLaneScroll=productLane?productLane.scrollTop:null;
+  state.selected=productId;
+  if(product){
+    state.selectedOwnership=product.ownership||"competitor";
+    state.selectedBrand=product.brand||"브랜드 미상";
+  }
+  if(section) state.section=section;
+  state.field=field;
+  if(field&&!section&&product){
+    const matched=(product.sections||[]).find(item=>item.fields.some(fieldItem=>fieldItem.key===field));
+    if(matched) state.section=matched.name;
+  }
+  state.graphFocus=productId;
+  render();
+}
+
+function selectOwnershipFilter(value){
+  $("ownership").value=value;
+  state.selectedOwnership=value||null;
+  state.selectedBrand=null;
+  state.selected=null;
+  state.field=null;
+  state.section=null;
+  updateHeaderOwnershipSwitch();
+  loadIndex();
+}
+
+function selectScope(scope,value){
+  if(scope==="ownership") $("ownership").value=value;
+  if(scope==="brand") $("brand").value=value;
+  updateHeaderOwnershipSwitch();
+  loadIndex();
+}
+
+function updateHeaderOwnershipSwitch(){
+  document.querySelectorAll("[data-header-owner-filter]").forEach(button=>{
+    button.classList.toggle("active",(button.dataset.headerOwnerFilter||"")===$("ownership").value);
+  });
+}
+
+function renderGraph(){
+  $("main").innerHTML='<div class="graph" id="graph"><div class="graph-fallback">그래프를 준비하는 중입니다.</div></div>';
+  requestAnimationFrame(drawGraph);
+}
+
+function drawGraph(){
+  const stage=$("graph");
+  if(!stage) return;
+  if(!window.d3){stage.innerHTML='<div class="graph-fallback">그래프 라이브러리 로드 실패<br>Depth 화면은 정상적으로 사용할 수 있습니다.</div>';return;}
+  const products=filterProducts($("search").value.trim());
+  const productIds=new Set(products.map(product=>product.product_id));
+  const sourceNodes=state.index.graph?.nodes||[];
+  const sourceLinks=state.index.graph?.links||[];
+  const allowed=new Set();
+  sourceNodes.forEach(node=>{
+    if(["ownership","brand"].includes(node.type)) allowed.add(node.id);
+    if(node.type==="product"&&productIds.has(node.product_id)) allowed.add(node.id);
+    if(state.graphFocus&&node.product_id===state.graphFocus) allowed.add(node.id);
+  });
+  sourceLinks.forEach(link=>{if(allowed.has(link.source)||allowed.has(link.target)){allowed.add(link.source);allowed.add(link.target);}});
+  const nodes=sourceNodes.filter(node=>allowed.has(node.id)).slice(0,180).map(node=>({...node}));
+  const ids=new Set(nodes.map(node=>node.id));
+  const links=sourceLinks.filter(link=>ids.has(link.source)&&ids.has(link.target)).slice(0,260).map(link=>({...link}));
+  if(!nodes.length){stage.innerHTML='<div class="graph-fallback">표시할 그래프 노드가 없습니다.</div>';return;}
+  stage.innerHTML='<svg id="svgGraph" role="img" aria-label="R&D knowledge graph"></svg>';
+  const width=stage.clientWidth||1100;
+  const height=stage.clientHeight||680;
+  const svg=d3.select("#svgGraph").attr("viewBox",`0 0 ${width} ${height}`);
+  const g=svg.append("g");
+  svg.call(d3.zoom().scaleExtent([0.45,2.4]).on("zoom",event=>g.attr("transform",event.transform)));
+  const focusId=state.graphFocus?`product:${state.graphFocus}`:"";
+  const linked=new Set(links.flatMap(link=>[`${link.source}->${link.target}`,`${link.target}->${link.source}`]));
+  const simulation=d3.forceSimulation(nodes)
+    .force("link",d3.forceLink(links).id(d=>d.id).distance(d=>d.target.type==="attribute"?76:112).strength(.46))
+    .force("charge",d3.forceManyBody().strength(d=>d.type==="ownership"?-520:d.type==="brand"?-260:d.type==="product"?-180:-70))
+    .force("center",d3.forceCenter(width*.5,height*.5))
+    .force("collide",d3.forceCollide().radius(d=>graphRadius(d)+9).iterations(2));
+  const link=g.append("g").selectAll("line").data(links).join("line").attr("class",d=>`graph-link ${isLinkDim(d,focusId)?"dim":""}`);
+  const node=g.append("g").selectAll("g").data(nodes).join("g").attr("class",d=>`graph-node ${isNodeDim(d,focusId,linked)?"dim":""}`).call(d3.drag()
+    .on("start",(event,d)=>{if(!event.active) simulation.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y;})
+    .on("drag",(event,d)=>{d.fx=event.x; d.fy=event.y;})
+    .on("end",(event,d)=>{if(!event.active) simulation.alphaTarget(0); d.fx=null; d.fy=null;}));
+  node.append("circle").attr("r",graphRadius).attr("fill",graphColor).attr("stroke","rgba(255,255,255,.35)").attr("stroke-width",1.2);
+  node.append("text").attr("class","graph-label").attr("x",d=>graphRadius(d)+5).attr("y",4).text(d=>compact(d.label,24));
+  node.on("click",(event,d)=>{if(d.type==="product"&&d.product_id){state.graphFocus=d.product_id;state.selected=d.product_id;drawGraph();}});
+  simulation.on("tick",()=>{link.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);node.attr("transform",d=>`translate(${d.x},${d.y})`);});
+}
+
+function restoreProductLaneScroll(){
+  if(state.pendingProductLaneScroll===null) return;
+  const lane=document.querySelector(".lane-product");
+  if(lane) lane.scrollTop=state.pendingProductLaneScroll;
+  state.pendingProductLaneScroll=null;
+}
+function scrollFocusedField(){const target=document.querySelector('[data-field-key][data-focused="true"]');if(target) target.scrollIntoView({block:"center",behavior:"smooth"});}
+function restorePartSearchFocus(){
+  if(!state.activePartSearch) return;
+  const input=document.querySelector(`[data-part-search="${state.activePartSearch.key}"]`);
+  if(!input) return;
+  input.focus({preventScroll:true});
+  const pos=Math.min(state.activePartSearch.pos,input.value.length);
+  try{input.setSelectionRange(pos,pos);}catch(err){}
+}
+function graphRadius(node){return ({ownership:24,brand:18,product:14,section:10,attribute:7,tag:7}[node.type]||8)}
+function graphColor(node){return ({ownership:"#67d4e8",brand:"#78d89b",product:"#e8ba62",section:"#5aa7ff",attribute:"#b8c3d1",tag:"#e56f6a"}[node.type]||"#9aa6b5")}
+function isNodeDim(node,focusId,linked){return focusId&&node.id!==focusId&&!linked.has(`${focusId}->${node.id}`)}
+function isLinkDim(link,focusId){return focusId&&link.source!==focusId&&link.target!==focusId&&link.source.id!==focusId&&link.target.id!==focusId}
+function highlight(value){const raw=esc(value);const needle=$("search").value.trim();if(!needle) return raw;return raw.replace(new RegExp(`(${needle.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")})`,"ig"),"<mark>$1</mark>");}
+function knowledgeSignature(index){
+  return JSON.stringify({
+    mode:index?.mode,
+    facets:index?.facets,
+    products:(index?.products||[]).map(product=>[
+      product.product_id,
+      product.product_name,
+      product.display_name,
+      product.brand,
+      product.ownership,
+      product.analysis_status,
+      product.analysis_count,
+      product.latest_run_id,
+      product.latest_run_updated_at,
+      product.representative_image_url,
+      product.field_count,
+      (product.sections||[]).map(section=>[section.name,section.field_count,(section.fields||[]).map(field=>[field.key,text(field.value),text(field.evidence),text(field.notes),field.status,field.confidence,field.source])])
+    ])
+  });
+}
+function compact(value,max){const out=text(value).replace(/\s+/g," ").trim();return out.length>max?`${out.slice(0,max)}...`:out}
+function compactSpecValue(value,key=""){return compact(text(value),key&&/(risk|recommend|strength|position|mood|type|pattern|shape|color)/i.test(key)?150:78).replace(/\bneeds_sample_measurement\b/gi,"샘플 실측 필요").replace(/\brecheck\b/gi,"재검수 필요").replace(/\bnot_found\b/gi,"자료 없음").replace(/\bestimated_from_visual\b/gi,"시각 추정").replace(/\binferred_from_guideline\b/gi,"지침 추론").replace(/\bexternal_research\b/gi,"외부 리서치").replace(/\bdetected\b/gi,"감지");}
+function safeClassName(value){return String(value||"value").toLowerCase().replace(/[^a-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"value"}
+function confidenceClass(value){const n=Number(value);if(!Number.isFinite(n)) return "mid";if(n>=.66) return "high";if(n>=.45) return "mid";return "low"}
+function statusLabel(value){return ({complete:"분석 완료",not_analyzed:"미분석",error:"오류",detected:"감지",visual_observation:"시각 관찰",estimated_from_visual:"시각 추정",external_research:"외부 리서치",inferred_from_guideline:"지침 추론",needs_sample_measurement:"샘플 실측 필요",recheck:"재검수 필요",not_found:"자료 없음"}[value]||value||"상태 없음")}
+function sectionLabel(value){return ({last_spec:"라스트",arch_waist_spec:"아치/허리",mold_spec:"몰드/금형",midsole_material_spec:"미드솔 물성",outsole_spec:"아웃솔 상세",material_spec:"소재",pattern_analysis:"패턴",accessory_spec:"부자재",biomechanics_analysis:"생체역학",color_spec:"컬러",design_review:"디자인",internal_real_data:"자사 실데이터",quality_checklist:"품질"}[value]||value)}
+function sourceShort(source){return text(source).replace(/visual_analysis|estimated_from_visual/gi,"시각 분석").replace(/external_research/gi,"외부 리서치").replace(/perspective/gi,"사선").replace(/outsole/gi,"아웃솔").replace(/side/gi,"사이드").replace(/top/gi,"상면").replace(/rear/gi,"후면").replace(/\.(jpg|jpeg|png|webp)/gi," 이미지").replace(/\s+/g," ").slice(0,90)}
+function fieldLabel(key,fallback){return ({toe_shape:"토 셰입",toe_spring_mm:"토 스프링",heel_spring_mm:"힐 스프링",toe_box_height_mm:"토박스 높이",heel_cup_height_mm:"힐컵 높이",width_grade:"발볼/라스트 폭",forefoot_contact_width_mm:"전족부 접지 폭",heel_contact_width_mm:"힐 접지 폭",last_type:"라스트 타입",mold_type:"몰드 타입",heel_midsole_height_mm:"힐 미드솔 높이",forefoot_midsole_height_mm:"전족부 미드솔 높이",drop_mm:"드롭",midsole_hardness_shore_c:"미드솔 경도",outsole_rubber_coverage:"아웃솔 러버 커버리지",lug_height_mm:"러그 높이",lug_pattern:"러그 패턴",tooling_risk:"금형 리스크",mesh_type:"메쉬/니트 구조",synthetic_type:"합성 보강",reinforcement_zones:"보강 위치",material_durability_risk:"소재 내구 리스크",pattern_line_type:"패턴 라인",construction_method:"공법",cushioning_response:"쿠셔닝 반응",ground_contact_stability:"접지 안정성",dominant_color_group:"메인 컬러",accent_colors:"포인트 컬러",design_strengths:"디자인 강점",design_risks:"디자인 리스크",recommendations:"개발 제안"}[key]||fallback||String(key||"").replace(/_/g," "))}
+async function api(path,options={}){
+  if(hasStaticSupabaseConfig()) return staticSupabaseApi(path,options);
+  const res=await fetch(path,{cache:"no-store",...options});
+  if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+function hasStaticSupabaseConfig(){const config=window.PRODUCTS_RND_VIEWER_SUPABASE||{};return Boolean(config.url&&config.anonKey)}
+async function staticSupabaseApi(path,options={}){
+  if(options.method&&options.method!=="GET") throw new Error("정적 배포판은 보기 전용입니다.");
+  const config=window.PRODUCTS_RND_VIEWER_SUPABASE||{};
+  const parsed=new URL(path,window.location.href);
+  const headers={apikey:config.anonKey,Authorization:`Bearer ${config.anonKey}`,Accept:"application/json"};
+  const request=async (table,params)=>{
+    const url=`${config.url.replace(/\/$/,"")}/rest/v1/${table}?${params.toString()}`;
+    const res=await fetch(url,{headers,cache:"no-store"});
+    if(!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    return res.json();
+  };
+  if(parsed.pathname.endsWith("/api/status")) return {ok:true,mode:"supabase",can_delete:false,static:true};
+  if(parsed.pathname.endsWith("/api/knowledge-index")){
+    const baseSelect="product_id,style,brand,product_name,display_name,color,sku,price,currency,source_url,analysis_count,latest_run_id,latest_run_updated_at,analysis_status,representative_image_url,tags";
+    const productParams=new URLSearchParams({select:`${baseSelect},metadata`,order:"latest_run_updated_at.desc.nullslast,product_name.asc",published:"eq.true"});
+    const status=parsed.searchParams.get("status")||"";
+    const brand=parsed.searchParams.get("brand")||"";
+    if(status) productParams.set("analysis_status",`eq.${status}`);
+    if(brand) productParams.set("brand",`eq.${brand}`);
+    let rawProducts;
+    try{rawProducts=await request("product_cards",productParams);}
+    catch(err){productParams.set("select",baseSelect);rawProducts=await request("product_cards",productParams);}
+    let products=normalizeStaticProducts(rawProducts);
+    const ownership=parsed.searchParams.get("ownership")||"";
+    if(ownership) products=products.filter(product=>product.ownership===ownership);
+    const runParams=new URLSearchParams({select:"run_id,product_id,run_type,analysis_status,created_at,updated_at,final_analysis,coverage",order:"updated_at.desc"});
+    const runs=await request("analysis_runs",runParams);
+    return buildStaticKnowledgeIndex(products,runs,"supabase");
+  }
+  throw new Error(`지원하지 않는 정적 API 경로: ${path}`);
+}
+function normalizeStaticProducts(products){
+  return (products||[]).map(product=>{
+    const metadata=product.metadata&&typeof product.metadata==="object"?product.metadata:{};
+    const ownership=normalizeOwnership(product.ownership||metadata.ownership||metadata.owner_type||metadata.source_scope||metadata.product_scope||metadata.company_scope)||"competitor";
+    return {...product,ownership,ownership_label:ownershipLabel(ownership),category:product.category||metadata.category||metadata.product_type||"",season:product.season||metadata.season||"",project_code:product.project_code||metadata.project_code||metadata.style_number||"",last_name:product.last_name||metadata.last_name||""};
+  });
+}
+function buildStaticKnowledgeIndex(cards,runs,mode){
+  const latestRuns=new Map();
+  (runs||[]).forEach(run=>{if(!latestRuns.has(run.product_id)) latestRuns.set(run.product_id,run);});
+  const products=[];
+  const searchItems=[];
+  const graphNodes=new Map();
+  const graphLinks=new Map();
+  const treeMap=new Map();
+  const brands=new Set();
+  const ownerships=new Set();
+  const sectionsSeen=new Set();
+  const addNode=(id,node)=>{if(!graphNodes.has(id)) graphNodes.set(id,{id,...node});};
+  const addLink=(source,target,relation)=>graphLinks.set(`${source}__${target}__${relation}`,{source,target,relation});
+  const addSearch=item=>searchItems.push({...item,haystack:[item.product_id,item.product_name,item.brand,item.ownership_label,item.section_label,item.key,item.label,item.value,item.evidence,item.notes].join(" ").toLowerCase()});
+  (cards||[]).forEach(card=>{
+    const run=latestRuns.get(card.product_id)||{};
+    const final=run.final_analysis||{};
+    const sections=final.sections||{};
+    const owner=card.ownership||"competitor";
+    const ownerLabel=card.ownership_label||ownershipLabel(owner);
+    const brand=card.brand||"브랜드 미상";
+    const productName=card.product_name||card.display_name||card.product_id;
+    ownerships.add(owner); brands.add(brand);
+    if(!treeMap.has(owner)) treeMap.set(owner,{id:owner,label:ownerLabel,brands:new Map()});
+    const ownerNode=treeMap.get(owner);
+    if(!ownerNode.brands.has(brand)) ownerNode.brands.set(brand,{id:`${owner}:${brand}`,label:brand,products:[]});
+    addNode(`ownership:${owner}`,{label:ownerLabel,type:"ownership",ownership:owner});
+    addNode(`brand:${owner}:${brand}`,{label:brand,type:"brand",ownership:owner,brand});
+    addLink(`ownership:${owner}`,`brand:${owner}:${brand}`,"contains");
+    addNode(`product:${card.product_id}`,{label:productName,type:"product",product_id:card.product_id,brand,ownership:owner});
+    addLink(`brand:${owner}:${brand}`,`product:${card.product_id}`,"contains");
+    (card.tags||[]).slice(0,8).forEach(tag=>{addNode(`tag:${tag}`,{label:String(tag),type:"tag"});addLink(`product:${card.product_id}`,`tag:${tag}`,"tagged");});
+    const sectionPayloads=Object.entries(sections).map(([sectionName,payload])=>{
+      const fields=collectStaticFields(payload,sectionName).map(field=>({...field,label:fieldLabel(field.key,field.label)}));
+      sectionsSeen.add(sectionName);
+      addNode(`section:${card.product_id}:${sectionName}`,{label:sectionLabel(sectionName),type:"section",product_id:card.product_id,section:sectionName});
+      addLink(`product:${card.product_id}`,`section:${card.product_id}:${sectionName}`,"has_section");
+      fields.slice(0,18).forEach(field=>{
+        addNode(`attribute:${sectionName}:${field.key}`,{label:field.label,type:"attribute",section:sectionName,key:field.key});
+        addLink(`section:${card.product_id}:${sectionName}`,`attribute:${sectionName}:${field.key}`,"has_attribute");
+        addSearch({type:"attribute",product_id:card.product_id,product_name:productName,brand,ownership:owner,ownership_label:ownerLabel,section:sectionName,section_label:sectionLabel(sectionName),key:field.key,label:field.label,value:text(field.value),evidence:text(field.evidence),notes:text(field.notes)});
+        if(field.evidence) addSearch({type:"evidence",product_id:card.product_id,product_name:productName,brand,ownership:owner,ownership_label:ownerLabel,section:sectionName,section_label:sectionLabel(sectionName),key:field.key,label:field.label,value:text(field.value),evidence:text(field.evidence),notes:text(field.notes)});
+      });
+      return {name:sectionName,label:sectionLabel(sectionName),field_count:fields.length,fields};
+    });
+    const fieldCount=sectionPayloads.reduce((sum,section)=>sum+section.field_count,0);
+    ownerNode.brands.get(brand).products.push({product_id:card.product_id,product_name:productName,field_count:fieldCount,analysis_status:card.analysis_status});
+    products.push({...card,latest_run_id:run.run_id||card.latest_run_id,latest_run_updated_at:run.updated_at||card.latest_run_updated_at,sections:sectionPayloads,field_count:fieldCount,summary:final.summary||"",manager_brief:final.manager_brief||{},ai_labels:final.ai_labels||{}});
+    addSearch({type:"product",product_id:card.product_id,product_name:productName,brand,ownership:owner,ownership_label:ownerLabel,section:"",section_label:"",key:"",label:productName,value:[card.sku,card.color,card.category,card.season,card.project_code,card.last_name].filter(Boolean).join(" · "),evidence:"",notes:""});
+  });
+  const tree=[...treeMap.values()].map(owner=>({id:owner.id,label:owner.label,brands:[...owner.brands.values()].map(brand=>({...brand,products:brand.products.sort((a,b)=>a.product_name.localeCompare(b.product_name,"ko"))}))}));
+  return {mode,facets:{ownerships:[...ownerships].map(value=>({value,label:ownershipLabel(value)})),brands:[...brands].sort(),sections:[...sectionsSeen].map(value=>({value,label:sectionLabel(value)}))},products,tree,search_items:searchItems.slice(0,4000),graph:{nodes:[...graphNodes.values()],links:[...graphLinks.values()]}};
+}
+function collectStaticFields(data,section,path=[]){
+  if(data&&typeof data==="object"&&!Array.isArray(data)&&["value","status","confidence","source","evidence","notes","owner"].some(key=>key in data)){
+    const key=path[path.length-1]||section;
+    return [{section,key,path:path.join("."),label:key,value:data.value,status:data.status,confidence:data.confidence,source:data.source,evidence:data.evidence,notes:data.notes}];
+  }
+  if(Array.isArray(data)) return data.flatMap((item,index)=>collectStaticFields(item,section,[...path,String(index+1)]));
+  if(data&&typeof data==="object") return Object.entries(data).flatMap(([key,value])=>collectStaticFields(value,section,[...path,key]));
+  return [];
+}
+function normalizeOwnership(value){
+  const raw=String(value||"").trim().toLowerCase();
+  if(!raw) return "";
+  if(["internal","own","owned","inhouse","in-house","our","ours","company","fnf","f&f","self","자사","내부","당사","자체"].includes(raw)) return "internal";
+  if(["competitor","external","market","benchmark","third_party","third-party","other","rival","타사","외부","경쟁사","벤치마크"].includes(raw)) return "competitor";
+  if(["자사","내부","당사","own","internal","inhouse","in-house"].some(token=>raw.includes(token))) return "internal";
+  if(["타사","외부","경쟁","competitor","external","benchmark"].some(token=>raw.includes(token))) return "competitor";
+  return "";
+}
+function ownershipLabel(value){return ({internal:"자사",competitor:"타사"}[value]||"미분류")}
+function debounce(fn,delay){let timer;return (...args)=>{clearTimeout(timer);timer=setTimeout(()=>fn(...args),delay)}}
+</script>
+</body>
+</html>

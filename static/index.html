@@ -1,0 +1,1594 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Products R&D Viewer</title>
+<style>
+@font-face{font-family:Pretendard;src:url("/dashboard-assets/fonts/PretendardVariable.woff2") format("woff2");font-weight:100 900;font-display:swap}
+:root{
+  --bg:#0f1115;--panel:#171b22;--panel2:#1f252e;--line:#2c333f;
+  --text:#edf1f7;--muted:#9aa6b5;--sub:#667385;
+  --green:#78d89b;--blue:#5aa7ff;--cyan:#67d4e8;--amber:#e8ba62;--red:#e56f6a;
+  --ink:#111827;--white:#fff;
+}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Pretendard,"Apple SD Gothic Neo",sans-serif;font-size:13px;letter-spacing:0}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:380px minmax(0,1fr);height:100vh;min-height:0;overflow:hidden}
+.sidebar{border-right:1px solid var(--line);background:#11151b;display:flex;flex-direction:column;min-width:0;height:100vh;min-height:0;overflow:hidden}
+.topbar{flex:0 0 auto;padding:16px 18px;border-bottom:1px solid var(--line)}
+.title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.title h1{font-size:18px;line-height:1.2;margin:0;font-weight:850}
+.mode{font-size:10px;color:var(--green);border:1px solid rgba(53,201,139,.45);background:rgba(53,201,139,.1);border-radius:999px;padding:3px 8px;font-weight:850}
+.filters{display:grid;grid-template-columns:1fr 100px 82px;gap:8px}
+.filters input,.filters select,.filters button{width:100%;height:34px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:7px;padding:0 10px;outline:none}
+.filters input{grid-column:1/-1}
+.filters input:focus,.filters select:focus,.filters button:focus{border-color:var(--blue)}
+.filters button{font-weight:850;color:var(--cyan)}
+.filters button:hover{border-color:var(--cyan);background:#1b222d}
+.meta-row{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:10px}
+.list{flex:1 1 auto;min-height:0;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+.list-group{display:grid;gap:8px}
+.list-group-title{position:sticky;top:-12px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#11151b;border-bottom:1px solid rgba(255,255,255,.08);padding:7px 2px 5px;color:#c9d3df;font-size:11px;font-weight:900}
+.list-group-title span:last-child{color:var(--sub);font-weight:800}
+.product-card{border:1px solid var(--line);background:var(--panel);border-radius:8px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:11px;padding:9px;text-align:left;color:inherit;transition:.15s;position:relative}
+.product-card:hover,.product-card.active{border-color:var(--blue);background:#1b222d}
+.product-card-open{position:absolute;inset:0;border:0;background:transparent;color:transparent;padding:0}
+.product-card-open:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:8px}
+.delete-btn{position:absolute;right:8px;bottom:8px;border:1px solid rgba(240,109,109,.42);background:rgba(240,109,109,.1);color:#f06d6d;border-radius:999px;padding:3px 8px;font-size:10px;font-weight:900;z-index:2}
+.delete-btn:hover{background:rgba(240,109,109,.2)}
+.thumb{height:82px;border-radius:7px;background:#f7f8fb;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;z-index:2}
+.thumb[data-lightbox-url]{cursor:zoom-in}
+.thumb[data-lightbox-url]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.thumb span{color:#8792a2;font-size:11px}
+.card-main{min-width:0;display:flex;flex-direction:column;gap:5px}
+.card-title{font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pill{border:1px solid var(--line);background:#151a21;color:var(--muted);border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;white-space:nowrap}
+.pill.done{border-color:rgba(53,201,139,.45);color:var(--green);background:rgba(53,201,139,.09)}
+.pill.warn{border-color:rgba(229,184,77,.45);color:var(--amber);background:rgba(229,184,77,.08)}
+.pill.internal{border-color:rgba(103,212,232,.42);color:var(--cyan);background:rgba(103,212,232,.09)}
+.pill.competitor{border-color:rgba(232,186,98,.42);color:var(--amber);background:rgba(232,186,98,.08)}
+.content{min-width:0;min-height:0;height:100vh;overflow:auto}
+.empty{height:100%;min-height:420px;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;line-height:1.7}
+.detail{max-width:1680px;margin:0 auto;padding:18px 22px 36px}
+.analysis-head{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.analysis-head h2{font-size:18px;line-height:1.2;margin:0 0 6px;font-weight:950;letter-spacing:0;overflow-wrap:anywhere}
+.analysis-head p{margin:0;color:#b9bab4;font-size:13px;font-weight:750}
+.analysis-id-meta{margin-top:4px!important;color:#858781!important;font-size:11px!important;font-weight:650!important;overflow-wrap:anywhere}
+.analysis-image-row{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:12px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px}
+.analysis-image-carousel{position:relative;margin-bottom:16px;overflow:hidden}
+.analysis-image-pages{display:flex;transition:transform .22s ease;will-change:transform}
+.analysis-image-page{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.analysis-image-card{border:1px solid #3c3d3a;background:#f4f4f2;border-radius:8px;overflow:hidden;min-height:170px;cursor:zoom-in;transition:border-color .15s,transform .15s}
+.analysis-image-card:hover{border-color:#5aa7ff;transform:translateY(-1px)}
+.analysis-image-card img{width:100%;height:198px;object-fit:contain;object-position:center center;display:block}
+.analysis-image-caption{height:40px;background:#2a2b28;color:#b9bab4;border-top:1px solid #3c3d3a;display:flex;align-items:center;padding:0 10px;font-size:13px;font-weight:800}
+.image-carousel-nav{position:absolute;right:9px;bottom:9px;z-index:2;width:34px;height:34px;border:1px solid rgba(103,212,232,.42);border-radius:999px;background:rgba(15,17,21,.82);color:#f2f1ea;font-size:20px;font-weight:950;display:grid;place-items:center;box-shadow:0 8px 18px rgba(0,0,0,.34)}
+.image-carousel-nav.prev{right:50px}
+.image-carousel-nav:hover{border-color:var(--cyan);color:var(--cyan)}
+.image-carousel-count{position:absolute;right:93px;bottom:14px;z-index:2;color:#b9bab4;background:rgba(15,17,21,.72);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:3px 8px;font-size:10px;font-weight:850}
+.analysis-overview-grid{display:grid;grid-template-columns:minmax(310px,420px) minmax(0,1fr);gap:12px;align-items:start;margin-bottom:16px}
+.analysis-left-stack{display:grid;gap:10px;min-width:0}
+.analysis-left-stack .analysis-image-carousel{margin-bottom:0}
+.analysis-left-stack .analysis-image-card{min-height:158px}
+.analysis-left-stack .analysis-image-card img{height:144px}
+.analysis-left-stack .analysis-image-caption{height:34px;font-size:12px}
+.analysis-left-stack .analysis-ai-strip{margin-bottom:0}
+.visual-summary-panel{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:12px;min-width:0}
+.visual-summary-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.visual-summary-head h3{margin:0;font-size:14px;font-weight:950}
+.visual-summary-head span{color:#aaa89c;font-size:11px;font-weight:850}
+.visual-summary-main{display:grid;grid-template-columns:minmax(280px,1fr) minmax(300px,1fr);gap:10px;margin-bottom:10px}
+.visual-card{border:1px solid rgba(103,212,232,.22);background:rgba(103,212,232,.045);border-radius:8px;padding:10px;min-width:0;overflow:hidden}
+.visual-card-title{font-size:12px;font-weight:950;color:#f2f1ea;margin-bottom:8px}
+.visual-side-stage{position:relative;border-radius:7px;overflow:hidden;background:#f4f4f2;min-height:230px;display:flex;align-items:center;justify-content:center}
+.visual-side-stage img{width:100%;height:100%;min-height:230px;object-fit:contain;display:block}
+.visual-callout{position:absolute;transform:translate(-50%,-50%);background:#0f2638;border:1px solid rgba(103,212,232,.65);box-shadow:0 6px 14px rgba(0,0,0,.32);border-radius:6px;padding:5px 7px;min-width:74px;color:#f2f1ea;font-size:11px;font-weight:850;line-height:1.25;text-align:left}
+.visual-callout b{display:block;color:#9fe8f1;font-size:10px;font-weight:950;margin-bottom:1px}
+.visual-footnote{color:#aaa89c;font-size:10.5px;line-height:1.45;margin-top:7px}
+.sole-profile-svg{width:100%;height:auto;display:block;min-height:210px}
+.sole-profile-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sole-chip{border:1px solid rgba(103,212,232,.24);background:rgba(0,0,0,.16);border-radius:999px;color:#e9edf2;font-size:11px;font-weight:820;padding:4px 8px;line-height:1.2}
+.part-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.part-summary-card{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.032);border-radius:8px;padding:9px;min-width:0}
+.part-summary-card strong{display:block;color:#f2f1ea;font-size:12px;font-weight:950;margin-bottom:6px}
+.part-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;color:#b9bab4;font-size:11.5px;line-height:1.35}
+.part-row span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.part-row span:last-child{color:#f2f1ea;font-weight:900;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.part-note{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08);color:#b9bab4;font-size:10.8px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.image-lightbox{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;background:rgba(5,7,10,.86);padding:28px}
+.image-lightbox.open{display:flex}
+.image-lightbox-panel{position:relative;display:grid;gap:10px;max-width:min(1180px,94vw);max-height:92vh}
+.image-lightbox-panel img{max-width:100%;max-height:82vh;object-fit:contain;display:block;background:#f4f4f2;border:1px solid rgba(255,255,255,.18);border-radius:8px}
+.image-lightbox-caption{color:#edf1f7;font-size:13px;font-weight:850;text-align:center}
+.image-lightbox-close{position:absolute;right:-12px;top:-12px;width:34px;height:34px;border:1px solid rgba(255,255,255,.22);border-radius:999px;background:#171b22;color:#edf1f7;font-size:22px;line-height:1;display:grid;place-items:center}
+.image-lightbox-close:hover{border-color:#5aa7ff;color:#5aa7ff}
+.analysis-ai-strip{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:10px 14px;margin-bottom:10px}
+.analysis-brief-full{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:16px;margin-bottom:16px}
+.analysis-panel{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:16px}
+.analysis-panel-title{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:950;margin-bottom:10px}
+.analysis-panel-title.compact{font-size:13px;margin-bottom:8px}
+.analysis-icon{width:26px;height:26px;border:3px solid #f1f1ec;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:#f1f1ec;font-size:15px;font-weight:950}
+.analysis-icon.sm{width:20px;height:20px;font-size:12px;border-width:2px;border-radius:6px}
+.label-bars{display:flex;flex-direction:row;gap:0;align-items:stretch}
+.label-row{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;padding:4px 10px;border-right:1px solid #2d2e2b;min-width:0}
+.label-row:last-child{border-right:none}
+.label-code{font-size:12px;font-weight:950;color:#b9bab4;letter-spacing:.5px}
+.label-track{height:5px;background:#2d2e2b;border-radius:99px;overflow:hidden;width:100%;max-width:80px}
+.label-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#79dc9b 0%,#69d6d5 52%,#f0c257 100%)}
+.label-score{font-size:15px;font-weight:900;color:#f2f1ea}
+.brief-stack{display:grid;grid-template-columns:minmax(280px,1fr) minmax(280px,1fr);gap:10px;max-height:none}
+.brief-stack>.brief-card.primary{grid-column:1/-1}
+.brief-card{border:1px solid #3a3a3a;background:#242522;border-radius:8px;padding:14px}
+.brief-card.primary{border-color:rgba(95,218,230,.5);background:linear-gradient(120deg,rgba(80,218,230,.13),rgba(229,184,77,.05))}
+.brief-card strong{display:block;color:#5fdbe8;font-size:12px;font-weight:950;margin-bottom:8px}
+.brief-card h3{font-size:20px;margin:0 0 8px;font-weight:950;line-height:1.25}
+.brief-card p{margin:0;color:#ddded8;line-height:1.6;font-size:14px}
+.brief-card ul{margin:0;padding-left:18px;color:#ddded8;line-height:1.9;font-size:14px}
+.brief-card li{margin:0}
+.agent-opinion-panel{display:grid;gap:12px}
+.agent-tabs{display:flex;flex-wrap:wrap;gap:8px;background:#161a20;border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:8px}
+.agent-tab{height:31px;border:1px solid var(--line);background:#151a21;color:#cdd6e0;border-radius:8px;padding:0 10px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:900;white-space:nowrap}
+.agent-tab:hover,.agent-tab.active{border-color:rgba(103,212,232,.62);background:rgba(103,212,232,.12);color:#f2f1ea}
+.agent-avatar{width:22px;height:22px;border-radius:6px;object-fit:cover;display:block;background:linear-gradient(135deg,rgba(103,212,232,.22),rgba(232,186,98,.16));border:1px solid rgba(255,255,255,.12);flex:0 0 auto}
+.agent-avatar.fallback{display:grid;place-items:center;font-size:10px;font-weight:950;color:#f2f1ea}
+.agent-opinion-view{display:none}
+.agent-opinion-view.active{display:block}
+.agent-main-card{border:1px solid #3a3a3a;background:linear-gradient(90deg,rgba(103,212,232,.09),rgba(255,255,255,.025) 42%,rgba(255,255,255,.02));border-radius:8px;padding:16px;margin-bottom:12px}
+.agent-header{display:flex;align-items:center;gap:13px;margin-bottom:12px}
+.agent-face{width:64px;height:64px;border-radius:8px;background:linear-gradient(135deg,rgba(103,212,232,.30),rgba(232,186,98,.16));border:1px solid rgba(255,255,255,.13);object-fit:cover;display:block;flex:0 0 auto}
+.agent-face.fallback{display:grid;place-items:center;color:#f2f1ea;font-size:18px;font-weight:950}
+.agent-name{font-size:17px;font-weight:950;color:#f2f1ea;line-height:1.2}
+.agent-role{color:#b9bab4;font-size:12px;font-weight:750;margin-top:4px}
+.agent-summary-label{color:#5fdbe8;font-size:11px;font-weight:950;margin-bottom:7px}
+.agent-summary{font-size:17px;line-height:1.55;font-weight:850;color:#f2f1ea;word-break:keep-all;overflow-wrap:anywhere}
+.agent-note{margin-top:12px;border:1px solid rgba(103,212,232,.28);background:rgba(103,212,232,.07);border-radius:8px;padding:10px 12px;color:#dce3e8;font-size:13px;font-weight:750;line-height:1.5}
+.agent-graph{border:1px solid rgba(103,212,232,.24);background:rgba(103,212,232,.045);border-radius:8px;padding:12px;margin:10px 0 14px;overflow:hidden}
+.agent-graph-title{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#5fdbe8;font-size:13px;font-weight:950;margin-bottom:10px}
+.agent-graph-title span{color:#aaa89c;font-size:10.5px;font-weight:850}
+.last-agent-graph-frame{position:relative;min-height:210px;border-radius:7px;background:linear-gradient(180deg,rgba(5,12,24,.86),rgba(13,28,39,.72));overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.last-agent-svg{width:100%;height:210px;display:block}
+.last-agent-callout{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);background:#0f2638;border:1px solid rgba(103,212,232,.64);border-radius:6px;padding:5px 7px;box-shadow:0 6px 14px rgba(0,0,0,.32);min-width:82px;color:#f2f1ea;font-size:11px;font-weight:850;line-height:1.25}
+.last-agent-callout b{display:block;color:#9fe8f1;font-size:10px;font-weight:950;margin-bottom:1px}
+.mold-agent-bars{display:grid;gap:8px}
+.mold-agent-bar{display:grid;grid-template-columns:104px minmax(0,1fr) 88px;gap:8px;align-items:center;color:#ddded8;font-size:12px;font-weight:800}
+.mold-agent-track{height:9px;border-radius:999px;background:rgba(255,255,255,.11);overflow:hidden}
+.mold-agent-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#5aa7ff,#67d4e8)}
+.mold-agent-value{color:#f2f1ea;text-align:right;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.biomech-flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:10px}
+.biomech-flow span{border:1px solid rgba(103,212,232,.25);background:rgba(255,255,255,.035);border-radius:8px;padding:7px 4px;text-align:center;color:#f2f1ea;font-size:11px;font-weight:950}
+.biomech-stage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.biomech-stage-card{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);border-radius:8px;padding:9px;min-width:0}
+.biomech-stage-head{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.biomech-stage-head i{width:24px;height:24px;border-radius:999px;background:rgba(90,167,255,.18);display:grid;place-items:center;color:#b8d8ff;font-style:normal;font-size:11px;font-weight:950}
+.biomech-stage-head strong{color:#f2f1ea;font-size:12px;font-weight:950}
+.biomech-stage-head span{margin-left:auto;color:#67d4e8;font-size:11px;font-weight:950}
+.biomech-stage-track{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:7px}
+.biomech-stage-track span{height:8px;border-radius:999px;background:rgba(255,255,255,.12)}
+.biomech-stage-track span.active{background:linear-gradient(90deg,#5aa7ff,#67d4e8)}
+.biomech-stage-note{color:#ddded8;font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.generic-agent-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.generic-agent-chip{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);border-radius:8px;padding:8px;min-width:0}
+.generic-agent-chip b{display:block;color:#b9bab4;font-size:10.5px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.generic-agent-chip span{display:block;color:#f2f1ea;font-size:12px;font-weight:950;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.agent-detail-card{border:1px solid #3a3a3a;background:#242522;border-radius:8px;padding:13px;min-height:118px}
+.agent-detail-card strong{display:block;color:#5fdbe8;font-size:12px;font-weight:950;margin-bottom:8px}
+.agent-detail-card p{margin:0;color:#ddded8;font-size:13px;line-height:1.65}
+.agent-detail-card ul{margin:0;padding-left:18px;color:#ddded8;font-size:13px;line-height:1.75}
+.agent-detail-card li{margin:0 0 2px}
+.analysis-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:7px;margin-bottom:2px}
+.analysis-metric-card{border:1px solid rgba(103,212,232,.22);background:linear-gradient(180deg,rgba(103,212,232,.08),rgba(255,255,255,.035));border-radius:8px;padding:8px;min-width:0;min-height:0;display:grid;gap:5px;align-content:start}
+.analysis-metric-card.compact .analysis-metric-value{font-size:14px;line-height:1.22;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.analysis-metric-card.has-zone-details{grid-column:1/-1}
+.analysis-metric-card.compact.has-zone-details .analysis-metric-value{display:block;-webkit-line-clamp:unset;overflow:visible}
+.analysis-metric-card.status-estimated_from_visual,.analysis-metric-card.status-inferred_from_guideline{border-color:rgba(232,186,98,.38);background:linear-gradient(180deg,rgba(232,186,98,.10),rgba(255,255,255,.03))}
+.analysis-metric-card.status-detected,.analysis-metric-card.status-visual_observation,.analysis-metric-card.status-derived_from_real_last_spec{border-color:rgba(120,216,155,.34);background:linear-gradient(180deg,rgba(120,216,155,.08),rgba(255,255,255,.03))}
+.analysis-metric-card.status-external_research{border-color:rgba(103,212,232,.34);background:linear-gradient(180deg,rgba(103,212,232,.09),rgba(255,255,255,.03))}
+.analysis-metric-card.status-needs_sample_measurement,.analysis-metric-card.status-recheck,.analysis-metric-card.status-not_found{border-color:rgba(229,111,106,.38);background:linear-gradient(180deg,rgba(229,111,106,.09),rgba(255,255,255,.03))}
+.analysis-metric-label{font-size:10.5px;color:#aaa89c;font-weight:760;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analysis-metric-value{font-size:18px;font-weight:820;color:#f2f1ea;line-height:1.14;overflow-wrap:anywhere;word-break:keep-all}
+.analysis-metric-value.needs{color:var(--red);font-size:14px;line-height:1.25}
+.value-number{color:var(--cyan);font-weight:920}
+.status-estimated_from_visual .value-number,.status-inferred_from_guideline .value-number{color:var(--amber)}
+.status-detected .value-number,.status-visual_observation .value-number,.status-derived_from_real_last_spec .value-number{color:var(--green)}
+.value-unit{color:#d7d4c8;font-size:.84em;font-weight:760}
+.analysis-metric-meta{display:flex;gap:5px;flex-wrap:wrap}
+.analysis-source{font-size:10px;color:#aaa89c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero{display:grid;grid-template-columns:minmax(260px,.72fr) minmax(0,1.28fr);gap:16px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px}
+.hero-media{background:var(--white);border-radius:8px;min-height:280px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hero-media img{width:100%;height:100%;max-height:420px;object-fit:contain;object-position:center center}
+.hero-info{min-width:0}
+.breadcrumb{font-size:11px;color:var(--muted);margin-bottom:8px}
+.hero h2{font-size:25px;line-height:1.16;margin:0 0 8px;font-weight:900}
+.hero p{margin:0;color:var(--muted);line-height:1.65}
+.brief-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:14px}
+.brief{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:13px}
+.brief strong{display:block;color:var(--amber);font-size:11px;margin-bottom:7px}
+.brief h3{font-size:15px;line-height:1.35;margin:0 0 6px}
+.brief ul{margin:0;padding-left:17px;color:var(--muted);line-height:1.55}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.toolbar h3{font-size:15px;margin:0;font-weight:850}
+.tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tabs button{height:32px;border:0;border-right:1px solid var(--line);background:var(--panel);color:var(--muted);padding:0 13px;font-size:12px;font-weight:800}
+.tabs button:last-child{border-right:0}
+.tabs button.active{background:var(--blue);color:#06111f}
+.section{display:none}
+.section.active{display:block}
+.image-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.image-card{border:1px solid var(--line);background:#fff;border-radius:8px;overflow:hidden;min-height:132px;position:relative}
+.image-card img{width:100%;height:132px;object-fit:contain;object-position:center center;display:block}
+.image-card span{position:absolute;left:7px;bottom:7px;background:rgba(15,17,21,.82);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:2px 7px;font-size:10px;font-weight:850;color:var(--text)}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:16px}
+.metric-card{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:11px;min-width:0}
+.metric-label{font-size:11px;color:var(--muted);font-weight:850;margin-bottom:7px}
+.metric-value{font-size:18px;font-weight:900;line-height:1.25;overflow-wrap:anywhere}
+.metric-value.needs{color:var(--amber);font-size:14px}
+.spec-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.dashboard-field-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.spec-card{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.035);border-radius:8px;min-width:0;padding:10px;position:relative;overflow:hidden}
+.spec-card.section-accessory_spec,.spec-card.section-pattern_analysis{grid-column:1/-1}
+.spec-card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(220px circle at var(--mx,-260px) var(--my,-260px),rgba(103,212,232,.14),rgba(232,186,98,.08),transparent 72%);transition:opacity .22s ease}
+.spec-card:hover::before{opacity:1}
+.spec-card>summary,.spec-card>.spec-body{position:relative;z-index:1}
+.spec-card summary{list-style:none;display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;cursor:pointer;color:#f2f1ea;font-weight:760;font-size:13px}
+.spec-card summary::-webkit-details-marker{display:none}
+.spec-card summary::after{content:"+";color:var(--cyan);border:1px solid rgba(103,212,232,.26);border-radius:999px;width:20px;height:20px;display:inline-grid;place-items:center;font-size:13px;line-height:1}
+.spec-card[open]>summary::after{content:"-"}
+.spec-body{display:grid;gap:8px;margin-top:10px}
+.spec-row{display:grid;gap:5px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.14);border-radius:8px;padding:8px;font-size:12px;line-height:1.45;color:#dfddd3}
+.spec-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;color:#f2f1ea;font-weight:720}
+.spec-key{font-size:12px;color:#f2f1ea;font-weight:720}
+.spec-value{color:#f3f1e8;font-size:15px;font-weight:740;line-height:1.35;overflow-wrap:anywhere;word-break:keep-all}
+.zone-table{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+.zone-item{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:7px;padding:8px}
+.zone-title{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:5px;color:#f3f1e8;font-size:12px;font-weight:780}
+.zone-title .spec-pill{width:max-content}
+.zone-detail{display:grid;grid-template-columns:1fr;gap:2px;color:#aaa89c;font-size:10.5px;line-height:1.32}
+.zone-detail strong{color:#dfddd3;font-weight:760;margin-top:4px}
+.zone-detail strong:first-child{margin-top:0}
+.zone-detail span{word-break:keep-all;overflow-wrap:break-word}
+.spec-meta{display:flex;flex-wrap:wrap;gap:5px}
+.spec-pill{min-height:20px;display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:2px 7px;color:#aaa89c;background:rgba(255,255,255,.035);max-width:100%;font-size:11px;line-height:1.25}
+.spec-pill.detected,.spec-pill.visual_observation,.spec-pill.derived_from_real_last_spec{color:var(--green);border-color:rgba(120,216,155,.3)}
+.spec-pill.estimated_from_visual,.spec-pill.inferred_from_guideline{color:var(--amber);border-color:rgba(232,186,98,.34)}
+.spec-pill.external_research{color:var(--cyan);border-color:rgba(103,212,232,.34)}
+.spec-pill.conf-high{color:var(--green);border-color:rgba(120,216,155,.32)}
+.spec-pill.conf-mid{color:var(--amber);border-color:rgba(232,186,98,.34)}
+.spec-pill.conf-low{color:var(--red);border-color:rgba(229,111,106,.36)}
+.spec-pill.needs_sample_measurement,.spec-pill.recheck,.spec-pill.not_found{color:var(--red);border-color:rgba(229,111,106,.36)}
+.spec-evidence{color:#aaa89c;font-size:11px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.spec-detail{border-top:1px solid rgba(255,255,255,.08);padding-top:6px;color:#aaa89c;font-size:11px}
+.spec-detail summary{list-style:none;cursor:pointer;color:var(--cyan);font-size:11px;font-weight:700;border:0;background:transparent;padding:0;margin-bottom:4px}
+.spec-detail summary::-webkit-details-marker{display:none}
+pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;padding:14px;overflow:auto;color:#dce5f5;font-size:11px;line-height:1.6}
+@media (max-width:960px){
+  html,body{overflow:hidden}
+  .app{grid-template-columns:1fr;grid-template-rows:46vh minmax(0,1fr);height:100vh}
+  .sidebar{height:auto;border-right:0;border-bottom:1px solid var(--line)}
+  .content{height:auto;min-height:0}
+  .filters{grid-template-columns:1fr 1fr 1fr 120px}
+  .filters input{grid-column:1/-1}
+  .hero,.brief-grid{grid-template-columns:1fr}
+  .brief-stack{grid-template-columns:1fr}
+  .agent-detail-grid{grid-template-columns:1fr}
+  .biomech-stage-grid,.generic-agent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analysis-overview-grid{grid-template-columns:1fr}
+  .visual-summary-main{grid-template-columns:1fr}
+  .part-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analysis-image-row{grid-template-columns:repeat(5,220px)}
+  .spec-grid{grid-template-columns:1fr}
+  .dashboard-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .filters{grid-template-columns:1fr 1fr}
+  .analysis-image-page{grid-template-columns:1fr}
+  .part-summary-grid{grid-template-columns:1fr}
+  .dashboard-field-grid{grid-template-columns:1fr}
+  .analysis-metric-card.has-zone-details{grid-column:1/-1}
+  .zone-table{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.ownership-toggle{display:flex;gap:5px;margin-bottom:10px}
+.own-btn{height:28px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:11px;font-weight:850;cursor:pointer;transition:.12s;letter-spacing:.3px;white-space:nowrap}
+.own-btn:hover{border-color:var(--blue);color:var(--text)}
+.own-btn.active[data-val=""]{border-color:rgba(103,212,232,.55);color:var(--cyan);background:rgba(103,212,232,.1)}
+.own-btn.active[data-val="internal"]{border-color:rgba(103,212,232,.55);color:var(--cyan);background:rgba(103,212,232,.1)}
+.own-btn.active[data-val="competitor"]{border-color:rgba(232,186,98,.55);color:var(--amber);background:rgba(232,186,98,.1)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="topbar">
+      <div class="title">
+        <h1>Products R&D Viewer</h1>
+        <span class="mode" id="mode">LOCAL</span>
+      </div>
+      <div class="ownership-toggle">
+        <button class="own-btn active" data-val="" type="button" onclick="setOwnership(this)">전체</button>
+        <button class="own-btn" data-val="internal" type="button" onclick="setOwnership(this)">자사</button>
+        <button class="own-btn" data-val="competitor" type="button" onclick="setOwnership(this)">타사</button>
+      </div>
+      <div class="filters">
+        <input id="search" type="search" placeholder="브랜드, 제품명, SKU, 컬러 검색">
+        <select id="brand">
+          <option value="">전체 브랜드</option>
+        </select>
+        <select id="status">
+          <option value="">전체 상태</option>
+          <option value="complete">분석 완료</option>
+          <option value="not_analyzed">미분석</option>
+          <option value="error">오류</option>
+        </select>
+        <button id="refresh" type="button">새로고침</button>
+      </div>
+      <div class="meta-row"><span id="count">0 styles</span><span id="updated">-</span></div>
+    </div>
+    <div class="list" id="productList"></div>
+  </aside>
+  <main class="content" id="content">
+    <div class="empty">제품 카드를 선택하면<br>R&D 상세 분석 결과가 표시됩니다.</div>
+  </main>
+</div>
+<div class="image-lightbox" id="imageLightbox" aria-hidden="true" onclick="closeImageLightbox()">
+  <div class="image-lightbox-panel" onclick="event.stopPropagation()">
+    <button class="image-lightbox-close" type="button" aria-label="이미지 닫기" onclick="closeImageLightbox()">×</button>
+    <img id="imageLightboxImg" src="" alt="">
+    <div class="image-lightbox-caption" id="imageLightboxCaption"></div>
+  </div>
+</div>
+
+<script>
+const state={allProducts:[],products:[],selected:null,run:null,mode:"local",canDelete:true,refreshTimer:null,productsSignature:"",brandSignature:""};
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+const text=value=>Array.isArray(value)?value.map(text).join(" / "):(value&&typeof value==="object"?JSON.stringify(value):String(value??""));
+const sectionAliases={pattern_spec:"pattern_analysis",biomechanics_spec:"biomechanics_analysis",design_spec:"design_review"};
+const currentSectionFields={
+  last_spec:new Set(["toe_shape","toe_spring_mm","heel_spring_mm","toe_box_height_mm","width_grade","forefoot_contact_width_mm","heel_contact_width_mm","last_type","instep_profile","focus","instep_girth","ball_girth","last_pitch"]),
+  arch_waist_spec:new Set(["arch_midsole_thickness","waist_width_ratio","midfoot_stiffness","torsion_stiffness","torsion_risk"]),
+  mold_spec:new Set(["heel_midsole_height_mm","forefoot_midsole_height_mm","drop_mm","outsole_toe_lift_mm","midsole_hardness_shore_c","outsole_rubber_coverage","lug_height_mm","lug_pattern","mold_adjustment_type","heel_outer_projection","heel_cup_height_mm","target_weight_240mm"]),
+  outsole_spec:new Set(["outsole_thickness","contact_ratio","outsole_color","outsole_structure","ground_contact_ratio"]),
+  material_spec:new Set(["mesh_type","synthetic_type","nosew_film_present","lining_visible","material_durability_risk","material_count","main_upper_material_candidates","synthetic_thickness","mesh_weight","mesh_zone","rib_type","rib_zone","tongue_foam","collar_padding","lining_foam","lining_foam_thickness"]),
+  pattern_analysis:new Set(["construction_method","vamp_line","heel_tab_style","collar_shape","alignment_risk","minimum_curve_radius","overlap_width_if_nosew","logo_width","logo_method","logo_position","toe_cap_style","heel_structure","collar_structure","vamp_method","quarter_method","tongue_deco_method","tongue_foam_method","pattern_alignment_risk"]),
+  accessory_spec:new Set(["lace_type","insole_material","insole_thickness","heel_tab_material","heel_tab_width","woven_width","label_size","heel_counter","padding_foam_type"]),
+  biomechanics_analysis:new Set(["ground_contact_stability","flex_point_estimate","toe_off_behavior","torsional_stability","cushioning_response","motion_risk","waist_contact_width_ratio","flex_point"]),
+  color_spec:new Set(["dominant_color_group","accent_colors","material_color_match_risk","color_deviation_risk","stain_or_migration_risk","color_main","color_accent","color_sole","color_lace","color_scheme","color_quality_risk"]),
+  design_review:new Set(["silhouette","market_position","trend_direction","similar_product_reference","target_consumer","planning_position","design_strengths","design_style","raw_category"])
+};
+const hiddenSectionNames=new Set(["quality_checklist","internal_real_data","midsole_material_spec"]);
+const removedSpecFields=new Set(["tooling_risk","mold_shrinkage","shrinkage_control","wet_slip_risk","rubber_gravity","rubber_density","midfoot_rubber","forefoot_rubber","heel_rubber","toe_tip_rubber","drain_depth","lace_color","lace_width","lace_length","insole_type","insole_fabric","heel_tab_color","midsole_material_candidates","midsole_material_priority","midsole_density_target","midsole_rank","midsole_material_reason","design_risks","logo_position_tolerance","overlay_zones","logo_height","pattern_line_type","brand_mood","analysis_note","recommendations","midsole_material_spec","midsole_gravity","rebound","compression_set","yellowing_risk","hydrolysis_risk","reinforcement_zones","outsole_hardness","mold_type","heel_bulge"]);
+
+init();
+
+async function init(){
+  $("search").addEventListener("input", debounce(loadProducts,180));
+  $("brand").addEventListener("change", applyProductFilters);
+  $("status").addEventListener("change", loadProducts);
+  $("refresh").addEventListener("click", ()=>loadProducts({force:true}));
+  $("productList").addEventListener("click",event=>{
+    const thumb=event.target.closest(".thumb[data-lightbox-url]");
+    if(!thumb) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openImageLightbox(thumb.dataset.lightboxUrl,thumb.dataset.lightboxCaption);
+  });
+  $("productList").addEventListener("keydown",event=>{
+    if(event.key!=="Enter"&&event.key!==" ") return;
+    const thumb=event.target.closest(".thumb[data-lightbox-url]");
+    if(!thumb) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openImageLightbox(thumb.dataset.lightboxUrl,thumb.dataset.lightboxCaption);
+  });
+  $("content").addEventListener("click",event=>{
+    const card=event.target.closest(".analysis-image-card");
+    if(card){
+      openImageLightbox(card.dataset.lightboxUrl,card.dataset.lightboxCaption);
+      return;
+    }
+  });
+  $("content").addEventListener("keydown",event=>{
+    if(event.key!=="Enter"&&event.key!==" ") return;
+    const card=event.target.closest(".analysis-image-card");
+    if(!card) return;
+    event.preventDefault();
+    openImageLightbox(card.dataset.lightboxUrl,card.dataset.lightboxCaption);
+  });
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape") closeImageLightbox();
+  });
+  await loadStatus();
+  await loadProducts();
+  if(state.mode!=="postgres"){
+    state.refreshTimer=setInterval(()=>loadProducts({silent:true}),10000);
+  }
+}
+
+async function loadStatus(){
+  try{
+    const data=await api("/api/status");
+    state.mode=data.mode||"local";
+    state.canDelete=Boolean(data.can_delete);
+    $("mode").textContent=state.mode.toUpperCase();
+  }catch(err){
+    $("mode").textContent="OFFLINE";
+    state.canDelete=false;
+  }
+}
+
+function getOwnership(){
+  const active=document.querySelector(".own-btn.active");
+  return active?active.dataset.val||"":"";
+}
+function setOwnership(btn){
+  document.querySelectorAll(".own-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  loadProducts();
+}
+
+async function loadProducts(options={}){
+  const params=new URLSearchParams();
+  if($("search").value.trim()) params.set("q",$("search").value.trim());
+  const ownership=getOwnership();
+  if(ownership) params.set("ownership",ownership);
+  if($("status").value) params.set("status",$("status").value);
+  let data;
+  try{
+    data=await api(`/api/products?${params.toString()}`);
+  }catch(err){
+    if(options.silent) return;
+    $("productList").innerHTML=`<div class="empty" style="min-height:180px">제품 목록을 불러오지 못했습니다.<br>${esc(err.message||err)}</div>`;
+    return;
+  }
+  const normalizedProducts=normalizeProducts(data.products||[]);
+  const nextSignature=productsSignature(normalizedProducts,data.mode,state.canDelete);
+  if(options.silent&&nextSignature===state.productsSignature) return;
+  state.allProducts=normalizedProducts;
+  state.productsSignature=nextSignature;
+  state.mode=data.mode||state.mode;
+  $("mode").textContent=state.mode.toUpperCase();
+  renderBrandFilter();
+  applyProductFilters({preserveSelection:true,preserveTime:options.silent});
+  if(options.force) $("updated").textContent=`수동 갱신 ${new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}`;
+}
+
+function applyProductFilters(options={}){
+  const brand=$("brand").value;
+  state.products=brand?state.allProducts.filter(product=>(product.brand||"")===brand):state.allProducts.slice();
+  $("count").textContent=`${state.products.length} styles`;
+  if(!options.preserveTime) $("updated").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+  renderList();
+  if(!state.products.some(product=>product.product_id===state.selected)){
+    state.selected=null;
+    state.run=null;
+  }
+  if(!state.selected&&state.products[0]) selectProduct(state.products[0].product_id);
+  if(!state.products.length){
+    $("content").innerHTML='<div class="empty">조건에 맞는 제품이 없습니다.<br>필터를 조정하거나 product 폴더를 확인하세요.</div>';
+  }
+}
+
+function renderBrandFilter(){
+  const select=$("brand");
+  const current=select.value;
+  const brands=[...new Set(state.allProducts.map(product=>product.brand||"브랜드 미상"))].sort((a,b)=>a.localeCompare(b,"ko"));
+  const signature=brands.join("\n");
+  if(signature===state.brandSignature) return;
+  state.brandSignature=signature;
+  select.innerHTML='<option value="">전체 브랜드</option>'+brands.map(brand=>`<option value="${esc(brand)}">${esc(brand)}</option>`).join("");
+  if(brands.includes(current)) select.value=current;
+}
+
+function normalizeProducts(products){
+  return products.map(product=>{
+    const metadata=product.metadata&&typeof product.metadata==="object"?product.metadata:{};
+    const ownership=normalizeOwnership(product.ownership||metadata.ownership||metadata.owner_type||metadata.source_scope||metadata.product_scope||metadata.company_scope);
+    const normalized=ownership||"competitor";
+    return {
+      ...product,
+      ownership:normalized,
+      ownership_label:product.ownership_label||ownershipLabel(normalized),
+      category:product.category||metadata.category||metadata.product_type||"",
+      season:product.season||metadata.season||"",
+      project_code:product.project_code||metadata.project_code||metadata.style_number||""
+    };
+  });
+}
+
+function renderList(){
+  const root=$("productList");
+  if(!state.products.length){
+    root.innerHTML='<div class="empty" style="min-height:180px">표시할 제품이 없습니다.</div>';
+    return;
+  }
+  const groups=groupProducts(state.products);
+  root.innerHTML=groups.map(group=>`<section class="list-group">
+    <div class="list-group-title"><span>${esc(group.title)}</span><span>${group.products.length}</span></div>
+    ${group.products.map(product=>{
+    const active=state.selected===product.product_id?"active":"";
+    const status=product.analysis_status==="complete"?"done":"warn";
+    const imageUrl=cacheImageUrl(product.representative_image_url,product.latest_run_updated_at||product.updated_at||product.product_id);
+    const image=imageUrl?`<img src="${esc(imageUrl)}" alt="" loading="lazy">`:"<span>No image</span>";
+    const thumbAttrs=imageUrl?` role="button" tabindex="0" data-lightbox-url="${esc(imageUrl)}" data-lightbox-caption="${esc(product.product_name||product.display_name||product.product_id||"대표 이미지")}"`:"";
+    const price=product.price?`${Number(product.price).toLocaleString("ko-KR")} ${esc(product.currency||"")}`:"가격 없음";
+    const ownership=normalizeOwnership(product.ownership)||"competitor";
+    return `<div class="product-card ${active}" data-product-card="${esc(product.product_id)}">
+      <button class="product-card-open" onclick="selectProduct('${esc(product.product_id)}')" aria-label="${esc(product.product_name||product.product_id)} 열기"></button>
+      <div class="thumb"${thumbAttrs}>${image}</div>
+      <div class="card-main">
+        <div class="card-title">${esc(product.product_name||product.display_name||product.product_id)}</div>
+        <div class="card-sub">${esc(product.brand||"브랜드 미상")} · ${esc(product.color||"컬러 미상")}</div>
+        <div class="card-sub">${esc(product.sku||"SKU 없음")} · ${price}</div>
+        <div class="card-row">
+          <span class="pill ${esc(ownership)}">${esc(product.ownership_label||ownershipLabel(ownership))}</span>
+          <span class="pill ${status}">${statusLabel(product.analysis_status)}</span>
+          <span class="pill">${esc(product.analysis_count||0)} runs</span>
+        </div>
+      </div>
+      ${state.canDelete?`<button class="delete-btn" onclick="hideProduct(event,'${esc(product.product_id)}')">삭제</button>`:""}
+    </div>`;
+  }).join("")}</section>`).join("");
+}
+
+function groupProducts(products){
+  const grouped=new Map();
+  products.forEach(product=>{
+    const ownership=normalizeOwnership(product.ownership)||"competitor";
+    const brand=product.brand||"브랜드 미상";
+    const key=`${ownership}__${brand}`;
+    if(!grouped.has(key)){
+      grouped.set(key,{ownership,brand,title:`${ownershipLabel(ownership)} / ${brand}`,products:[]});
+    }
+    grouped.get(key).products.push(product);
+  });
+  return [...grouped.values()].sort((a,b)=>{
+    const ownerOrder={internal:0,competitor:1};
+    return (ownerOrder[a.ownership]??9)-(ownerOrder[b.ownership]??9)||a.brand.localeCompare(b.brand,"ko");
+  });
+}
+
+async function hideProduct(event,productId){
+  event.stopPropagation();
+  const product=state.products.find(item=>item.product_id===productId);
+  const name=product?.product_name||product?.display_name||productId;
+  if(!confirm(`대시보드에서 이 스타일을 삭제할까요?\\n\\n${name}\\n\\n원본 폴더는 지우지 않고 목록에서 숨김 처리됩니다.`)) return;
+  try{
+    await api(`/api/products/${encodeURIComponent(productId)}`,{method:"DELETE"});
+    if(state.selected===productId){
+      state.selected=null;
+      state.run=null;
+      $("content").innerHTML='<div class="empty">삭제되었습니다.<br>다른 제품 카드를 선택하세요.</div>';
+    }
+    await loadProducts();
+  }catch(err){
+    alert(`삭제 실패: ${err.message||err}`);
+  }
+}
+
+async function selectProduct(productId){
+  const previousSelected=state.selected;
+  state.selected=productId;
+  updateProductSelectionStyles(previousSelected,productId);
+  const product=state.products.find(item=>item.product_id===productId);
+  $("content").innerHTML='<div class="empty">분석 결과를 불러오는 중입니다.</div>';
+  try{
+    const runs=await api(`/api/products/${encodeURIComponent(productId)}/runs`);
+    const latest=(runs.runs||[])[0];
+    if(!latest){
+      renderProductShell(product,null);
+      return;
+    }
+    const detail=await api(`/api/runs/${encodeURIComponent(latest.run_id)}`);
+    state.run=detail.run;
+    renderProductShell(product,detail.run);
+  }catch(err){
+    $("content").innerHTML=`<div class="empty">불러오기 실패<br>${esc(err.message||err)}</div>`;
+  }
+}
+
+function updateProductSelectionStyles(previousId,nextId){
+  if(previousId){
+    document.querySelector(`[data-product-card="${cssEscape(previousId)}"]`)?.classList.remove("active");
+  }
+  const next=document.querySelector(`[data-product-card="${cssEscape(nextId)}"]`);
+  if(next){next.classList.add("active");return;}
+  renderList();
+}
+
+function renderProductShell(product,run){
+  const final=run?.final_analysis||{};
+  const assets=run?.assets||[];
+  const brief=managerBrief(final,run?.run_id||"");
+  const sections=visibleAnalysisSections(final.sections||{});
+  const allFields=collectSpecFields(sections);
+  const numericFields=allFields.filter(field=>isPrimary(field.key,field.data));
+  const title=product?.product_name||product?.display_name||final.product_name||brief.title||product?.product_id||final.style||"제품";
+  const technicalMeta=[
+    product?.product_id?`ID ${compact(product.product_id,48)}`:"",
+    run?.run_id?`Run ${compact(run.run_id,56)}`:""
+  ].filter(Boolean);
+  const ownership=normalizeOwnership(product?.ownership||final.ownership)||"competitor";
+  const metaChips=[
+    product?.ownership_label||ownershipLabel(ownership),
+    product?.brand||final.brand,
+    product?.category,
+    product?.season,
+    product?.project_code
+  ].filter(Boolean);
+  $("content").innerHTML=`<div class="detail">
+    <section class="analysis-head">
+      <h2>${esc(title)}</h2>
+      <p>${esc(metaChips.join(" · "))}${metaChips.length?" · ":""}JSON 기준 ${allFields.length}개 분석값 · 수치/스펙형 ${numericFields.length}개 · 이미지 ${assets.length}개</p>
+      ${technicalMeta.length?`<p class="analysis-id-meta">${esc(technicalMeta.join(" · "))}</p>`:""}
+    </section>
+    <section class="analysis-overview-grid">
+      <div class="analysis-left-stack">
+        ${renderAnalyzerImages(assets,product)}
+        <section class="analysis-ai-strip">
+          <div class="analysis-panel-title compact"><span class="analysis-icon sm">⌁</span>AI 라벨</div>
+          ${renderAiLabels(final.ai_labels||{})}
+        </section>
+      </div>
+      ${renderVisualSummary(final,assets,product)}
+    </section>
+    <section class="analysis-brief-full">
+      <div class="analysis-panel-title"><span class="analysis-icon">✓</span>R&D 총괄 요약</div>
+      ${renderAgentOpinions(final,brief)}
+    </section>
+    <div class="toolbar">
+      <h3>분석 결과</h3>
+      <div class="tabs">
+        <button class="active" onclick="showTab('summary',this)">결과</button>
+        <button onclick="showTab('raw',this)">Raw JSON</button>
+      </div>
+    </div>
+    <section id="tab-summary" class="section active">
+      ${renderMetricGrid(sections)}
+      ${renderSections(sections)}
+    </section>
+    <section id="tab-raw" class="section"><pre>${esc(JSON.stringify(final||{},null,2))}</pre></section>
+  </div>`;
+}
+
+function renderVisualSummary(final,assets,product){
+  const picked=pickAnalyzerImageAssets(assets);
+  const sideAsset=picked.find(asset=>normalizeImageView(asset)==="side")||picked[0];
+  const sideUrl=sideAsset?.public_url||sideAsset?.url||product?.representative_image_url||"";
+  const callouts=[
+    {section:"mold_spec",key:"heel_midsole_height_mm",x:20,y:43},
+    {section:"mold_spec",key:"forefoot_midsole_height_mm",x:65,y:57},
+    {section:"mold_spec",key:"drop_mm",x:50,y:49},
+    {section:"mold_spec",key:"outsole_toe_lift_mm",x:83,y:69,label:"아웃솔 토 리프트"},
+    {section:"last_spec",key:"toe_spring_mm",x:84,y:58,label:"라스트 토 스프링"},
+    {section:"last_spec",key:"heel_spring_mm",x:20,y:68},
+    {section:"last_spec",key:"toe_box_height_mm",x:80,y:34},
+    {section:"mold_spec",key:"heel_cup_height_mm",x:20,y:28}
+  ].map(item=>({...item,value:specText(final,item.section,item.key)})).filter(item=>item.value).slice(0,7);
+  return `<section class="visual-summary-panel">
+    <div class="visual-summary-head"><h3>R&D 시각 요약</h3><span>기존 분석값 기반</span></div>
+    <div class="visual-summary-main">
+      <div class="visual-card">
+        <div class="visual-card-title">사이드 콜아웃</div>
+        ${sideUrl?`<div class="visual-side-stage">
+          <img src="${esc(sideUrl)}" alt="side">
+          ${callouts.map(item=>`<div class="visual-callout" style="left:${item.x}%;top:${item.y}%"><b>${esc(item.label||label(item.key))}</b>${esc(compactSpecValue(item.value,item.key))}</div>`).join("")}
+        </div>`:`<div class="empty" style="min-height:230px">사이드 이미지가 없습니다.</div>`}
+        <div class="visual-footnote">이미지 위치는 이해용 고정 콜아웃이며, 실제 좌표 측정값은 샘플 실측으로 확정합니다.</div>
+      </div>
+      <div class="visual-card">
+        <div class="visual-card-title">솔 프로파일</div>
+        ${renderSoleProfile(final)}
+      </div>
+    </div>
+    ${renderPartSummary(final)}
+  </section>`;
+}
+
+function renderSoleProfile(final){
+  const heel=specText(final,"mold_spec","heel_midsole_height_mm");
+  const fore=specText(final,"mold_spec","forefoot_midsole_height_mm");
+  const drop=specText(final,"mold_spec","drop_mm");
+  const toeLift=specText(final,"mold_spec","outsole_toe_lift_mm")||specText(final,"last_spec","toe_spring_mm");
+  const heelSpring=specText(final,"last_spec","heel_spring_mm")||specText(final,"mold_spec","heel_spring_mm");
+  const lug=specText(final,"mold_spec","lug_height_mm");
+  const heelN=parseSpecNumber(heel)??30;
+  const foreN=parseSpecNumber(fore)??22;
+  const toeN=parseSpecNumber(toeLift)??12;
+  const heelY=Math.max(44,Math.min(78,105-heelN*1.55));
+  const foreY=Math.max(58,Math.min(92,112-foreN*1.55));
+  const toeY=Math.max(42,Math.min(84,foreY-toeN*.8));
+  const baseY=132;
+  const dropTopY=heelY+10;
+  const dropBottomY=foreY+8;
+  const chips=[
+    ["힐 미드솔 높이",heel],
+    ["전족부 미드솔 높이",fore],
+    ["드롭",drop],
+    ["아웃솔 토 리프트",toeLift],
+    ["힐 스프링",heelSpring],
+    ["트레드 돌기 높이",lug]
+  ].filter(([,value])=>value);
+  return `<svg class="sole-profile-svg" viewBox="0 0 320 180" role="img" aria-label="솔 프로파일">
+    <defs><linearGradient id="rndLiveSoleGradient" x1="0" x2="1"><stop offset="0%" stop-color="#5aa7ff" stop-opacity=".82"/><stop offset="100%" stop-color="#67d4e8" stop-opacity=".88"/></linearGradient></defs>
+    <line x1="22" y1="${baseY}" x2="292" y2="${baseY}" stroke="rgba(255,255,255,.22)" stroke-width="1.3"/>
+    <path d="M22 ${heelY.toFixed(1)} C72 ${(heelY+6).toFixed(1)} 118 ${(foreY-4).toFixed(1)} 154 ${foreY.toFixed(1)} C196 ${(foreY+2).toFixed(1)} 246 ${(toeY+5).toFixed(1)} 292 ${toeY.toFixed(1)} L292 ${baseY} L22 ${baseY} Z" fill="url(#rndLiveSoleGradient)" stroke="rgba(237,241,247,.82)" stroke-width="1.6"/>
+    <line x1="42" y1="${heelY+8}" x2="42" y2="${baseY}" stroke="rgba(237,241,247,.74)" stroke-dasharray="4 5" stroke-width="1.4"/>
+    <line x1="154" y1="${foreY+8}" x2="154" y2="${baseY}" stroke="rgba(237,241,247,.74)" stroke-dasharray="4 5" stroke-width="1.4"/>
+    <line x1="260" y1="${toeY+8}" x2="260" y2="${baseY}" stroke="rgba(237,241,247,.74)" stroke-dasharray="4 5" stroke-width="1.4"/>
+    ${drop?`<line x1="106" y1="${dropTopY}" x2="106" y2="${dropBottomY}" stroke="#e8ba62" stroke-width="1.7"/><text x="112" y="${((dropTopY+dropBottomY)/2+3).toFixed(1)}" fill="#f2f1ea" font-size="8" font-weight="800">드롭 ${esc(compactSpecValue(drop,"drop_mm"))}</text>`:""}
+    ${heel?`<text x="38" y="30" fill="#f2f1ea" font-size="8.5" font-weight="850">힐 ${esc(compactSpecValue(heel,"heel_midsole_height_mm"))}</text>`:""}
+    ${fore?`<text x="150" y="126" fill="#f2f1ea" font-size="8.5" font-weight="850">전족 ${esc(compactSpecValue(fore,"forefoot_midsole_height_mm"))}</text>`:""}
+    ${toeLift?`<text x="244" y="32" fill="#f2f1ea" font-size="8.5" font-weight="850">토 리프트 ${esc(compactSpecValue(toeLift,"outsole_toe_lift_mm"))}</text>`:""}
+    <text x="40" y="146" fill="#b9bab4" font-size="8">heel</text><text x="145" y="146" fill="#b9bab4" font-size="8">forefoot</text><text x="252" y="146" fill="#b9bab4" font-size="8">toe</text>
+  </svg>
+  <div class="sole-profile-chips">${chips.map(([name,value])=>`<span class="sole-chip">${esc(name)} ${esc(compactSpecValue(value))}</span>`).join("")}</div>`;
+}
+
+function renderPartSummary(final){
+  const groups=[
+    ["라스트",[["라스트 토 스프링","last_spec","toe_spring_mm"],["힐 스프링","last_spec","heel_spring_mm"],["토박스 높이","last_spec","toe_box_height_mm"],["볼 거스","last_spec","ball_girth"]]],
+    ["몰드/솔",[["힐 미드솔 높이","mold_spec","heel_midsole_height_mm"],["전족부 미드솔 높이","mold_spec","forefoot_midsole_height_mm"],["드롭","mold_spec","drop_mm"],["아웃솔 토 리프트","mold_spec","outsole_toe_lift_mm"]]],
+    ["아웃솔",[["아웃솔 두께","outsole_spec","outsole_thickness"],["러버 적용 면적비","mold_spec","outsole_rubber_coverage"],["접지 면적비","outsole_spec","ground_contact_ratio"],["아웃솔 구조","outsole_spec","outsole_structure"]]],
+    ["아치/운동역학",[["허리 접지 폭 비율","biomechanics_analysis","waist_contact_width_ratio"],["접지 안정성","biomechanics_analysis","ground_contact_stability"],["굴곡 지점","biomechanics_analysis","flex_point"],["모션 리스크","biomechanics_analysis","motion_risk"]]]
+  ].map(([title,rows])=>{
+    const values=rows.map(([name,section,key])=>[name,specText(final,section,key),key,fieldNote(final,section,key)]).filter(([,value])=>value).slice(0,4);
+    const note=values.map(([,value,,memo])=>memo||value).filter(Boolean).map(item=>compact(item,92))[0]||"";
+    return values.length?`<div class="part-summary-card"><strong>${esc(title)}</strong>${values.map(([name,value,key])=>`<div class="part-row"><span>${esc(name)}</span><span>${esc(compactSpecValue(value,key))}</span></div>`).join("")}${note?`<div class="part-note">${esc(note)}</div>`:""}</div>`:"";
+  }).join("");
+  return groups?`<div class="part-summary-grid">${groups}</div>`:"";
+}
+
+function fieldNote(final,section,key){
+  const data=final?.sections?.[section]?.[key];
+  if(!data||typeof data!=="object") return "";
+  return text(data.notes||data.evidence||"");
+}
+
+function parseSpecNumber(value){
+  const nums=String(value||"").match(/\d+(?:\.\d+)?/g)?.map(Number).filter(Number.isFinite)||[];
+  if(!nums.length) return null;
+  return nums.slice(0,2).reduce((sum,num)=>sum+num,0)/Math.min(nums.length,2);
+}
+
+function renderAnalyzerImages(assets,product){
+  const list=pickAnalyzerImageAssets(assets||[]);
+  if(!list.length&&product?.representative_image_url){
+    list.push({url:product.representative_image_url,view_name:"대표 이미지"});
+  }
+  if(!list.length) return "";
+  const pages=[];
+  for(let index=0;index<list.length;index+=4) pages.push(list.slice(index,index+4));
+  return `<section class="analysis-image-carousel" data-carousel-page="0">
+    <div class="analysis-image-pages">
+      ${pages.map(page=>`<div class="analysis-image-page">${page.map(asset=>{
+    const url=asset.public_url||asset.url;
+    const caption=asset.view_name||asset.view||asset.file_name||asset.name||"image";
+    return `<div class="analysis-image-card" role="button" tabindex="0" data-lightbox-url="${esc(url)}" data-lightbox-caption="${esc(caption)}"><img src="${esc(url)}" alt="${esc(caption)}"><div class="analysis-image-caption">${esc(caption)}</div></div>`;
+  }).join("")}</div>`).join("")}
+    </div>
+    ${pages.length>1?`<span class="image-carousel-count">1/${pages.length}</span><button class="image-carousel-nav prev" type="button" aria-label="이전 이미지" onclick="moveAnalyzerImages(this,-1)">‹</button><button class="image-carousel-nav next" type="button" aria-label="다음 이미지" onclick="moveAnalyzerImages(this,1)">›</button>`:""}
+  </section>`;
+}
+
+function moveAnalyzerImages(button,delta){
+  const root=button.closest(".analysis-image-carousel");
+  if(!root) return;
+  const pages=root.querySelector(".analysis-image-pages");
+  const count=root.querySelectorAll(".analysis-image-page").length;
+  if(!pages||count<2) return;
+  const current=Number(root.dataset.carouselPage||0);
+  const next=(current+delta+count)%count;
+  root.dataset.carouselPage=String(next);
+  pages.style.transform=`translateX(${-next*100}%)`;
+  const counter=root.querySelector(".image-carousel-count");
+  if(counter) counter.textContent=`${next+1}/${count}`;
+}
+
+function pickAnalyzerImageAssets(assets){
+  const priority=["side","top","outsole","rear","perspective"];
+  const candidates=(assets||[])
+    .filter(asset=>asset.public_url||asset.url)
+    .map((asset,index)=>({...asset,_index:index,_view:normalizeImageView(asset)}));
+  const picked=[];
+  const usedUrls=new Set();
+  priority.forEach(view=>{
+    const match=candidates
+      .filter(asset=>asset._view===view&&!usedUrls.has(asset.public_url||asset.url))
+      .sort((a,b)=>imageAssetRank(a,view)-imageAssetRank(b,view))[0];
+    if(match){
+      picked.push(match);
+      usedUrls.add(match.public_url||match.url);
+    }
+  });
+  candidates
+    .filter(asset=>!usedUrls.has(asset.public_url||asset.url))
+    .sort((a,b)=>imageAssetRank(a,a._view)-imageAssetRank(b,b._view))
+    .forEach(asset=>{
+    if(picked.length<12){
+        picked.push(asset);
+        usedUrls.add(asset.public_url||asset.url);
+      }
+    });
+  return picked.slice(0,12);
+}
+
+function normalizeImageView(asset){
+  const raw=String(asset.view_name||asset.view||asset.file_name||asset.name||"").toLowerCase();
+  if(raw.includes("side")) return "side";
+  if(raw.includes("top")) return "top";
+  if(raw.includes("outsole")||raw.includes("bottom")) return "outsole";
+  if(raw.includes("rear")||raw.includes("back")) return "rear";
+  if(raw.includes("perspective")||raw.includes("three_quarter")) return "perspective";
+  return raw||"image";
+}
+
+function imageAssetRank(asset,view){
+  const name=String(asset.file_name||asset.name||"").toLowerCase();
+  const kind=String(asset.asset_kind||asset.kind||"").toLowerCase();
+  const exact={
+    side:["side"],
+    top:["top"],
+    outsole:["bottom","outsole"],
+    rear:["back","rear"],
+    perspective:["three_quarter","perspective"]
+  }[view]||[];
+  let score=asset._index||0;
+  if(kind==="source") score-=40;
+  if(kind==="run") score-=20;
+  exact.forEach((stem,index)=>{
+    if(name===`${stem}.png`||name===`${stem}.jpg`||name===`${stem}.jpeg`||name===`${stem}.webp`) score-=30-index;
+  });
+  return score;
+}
+
+function openImageLightbox(url,caption){
+  if(!url) return;
+  $("imageLightboxImg").src=url;
+  $("imageLightboxImg").alt=caption||"제품 이미지";
+  $("imageLightboxCaption").textContent=caption||"제품 이미지";
+  $("imageLightbox").classList.add("open");
+  $("imageLightbox").setAttribute("aria-hidden","false");
+}
+
+function closeImageLightbox(){
+  const lightbox=$("imageLightbox");
+  if(!lightbox) return;
+  lightbox.classList.remove("open");
+  lightbox.setAttribute("aria-hidden","true");
+  $("imageLightboxImg").src="";
+}
+
+function cacheImageUrl(url,version){
+  if(!url) return "";
+  if(!/^https?:\/\//.test(url)) return url;
+  const sep=url.includes("?")?"&":"?";
+  return `${url}${sep}v=${encodeURIComponent(String(version||"1"))}`;
+}
+
+function renderAiLabels(labels){
+  const order=["UML","TL","LSL","SVL","ACL","RL"];
+  if(!labels||!Object.keys(labels).length) return '<div class="empty" style="min-height:180px">AI 라벨 값이 없습니다.</div>';
+  return `<div class="label-bars">${order.map(code=>{
+    const raw=labels[code];
+    const score=Number(raw&&typeof raw==="object"?raw.score:raw);
+    const safe=Number.isFinite(score)?Math.max(0,Math.min(5,score)):0;
+    return `<div class="label-row">
+      <div class="label-code">${esc(code)}</div>
+      <div class="label-track"><div class="label-fill" style="width:${safe/5*100}%"></div></div>
+      <div class="label-score">${Number.isFinite(score)?score.toFixed(1):"-"}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function renderAgentOpinions(final,brief){
+  const agents=buildAgentOpinions(final,brief).filter(agent=>agent.summary||agent.cards.length);
+  if(!agents.length) return renderAnalyzerBrief(brief);
+  return `<div class="agent-opinion-panel">
+    <div class="agent-tabs">
+      ${agents.map((agent,index)=>`<button class="agent-tab ${index===0?"active":""}" type="button" data-agent-tab="${esc(agent.id)}" onclick="showOpinionAgent(this,'${esc(agent.id)}')">${agentAvatarHtml(agent,"small")}${esc(agent.label)}</button>`).join("")}
+    </div>
+    ${agents.map((agent,index)=>`<div class="agent-opinion-view ${index===0?"active":""}" data-agent-view="${esc(agent.id)}">
+      <div class="agent-main-card">
+        <div class="agent-header">
+          ${agentAvatarHtml(agent,"large")}
+          <div><div class="agent-name">${esc(agent.name)}</div><div class="agent-role">${esc(agent.role)}</div></div>
+        </div>
+        ${agent.graph||""}
+        <div class="agent-summary-label">${esc(agent.summaryLabel)}</div>
+        <div class="agent-summary">${esc(agent.summary||"저장된 분석값 기준으로 담당 파트를 검토했습니다.")}</div>
+        ${agent.note?`<div class="agent-note">${esc(agent.note)}</div>`:""}
+      </div>
+      <div class="agent-detail-grid">
+        ${agent.cards.map(card=>`<div class="agent-detail-card"><strong>${esc(card.title)}</strong>${Array.isArray(card.items)?`<ul>${card.items.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:`<p>${esc(card.body||"")}</p>`}</div>`).join("")}
+      </div>
+    </div>`).join("")}
+  </div>`;
+}
+
+function agentAvatarHtml(agent,size="small"){
+  const cls=size==="large"?"agent-face":"agent-avatar";
+  const assetId=agent.assetId||agent.id;
+  const src=`/static/assets/agent-portraits/${encodeURIComponent(assetId)}.png?v=4`;
+  const fallback=esc(agent.initial||"");
+  return `<img class="${cls}" src="${src}" alt="" loading="lazy" aria-hidden="true" onerror="this.outerHTML='<span class=&quot;${cls} fallback&quot;>${fallback}</span>'">`;
+}
+
+function showOpinionAgent(button,agentId){
+  const panel=button.closest(".agent-opinion-panel");
+  if(!panel) return;
+  panel.querySelectorAll(".agent-tab").forEach(tab=>tab.classList.toggle("active",tab.dataset.agentTab===agentId));
+  panel.querySelectorAll(".agent-opinion-view").forEach(view=>view.classList.toggle("active",view.dataset.agentView===agentId));
+}
+
+function buildAgentOpinions(final,brief){
+  const managerSection=final?.sections?._manager_brief||final?.manager_brief||{};
+  const narrative=final?.sections?._manager_narrative||{};
+  const department=narrative.department_brief||{};
+  const agents=[
+    {
+      id:"rnd_manager",assetId:"rnd_manager",label:"R&D 매니저 총평",initial:"총",name:"R&D 총괄",role:"전체 분석 총평, 개발 방향, 생산시 유의사항 정리",
+      summaryLabel:"R&D 매니저 전체 총평",
+      summary:narrative.overview||brief.take||managerSection.r_d_take||brief.identity,
+      note:narrative.confidence_note||managerSection.research_briefing||"먼저 R&D 매니저 총평으로 전체 방향을 확인한 뒤, 상단의 각 세부 담당자 탭에서 라스트, 몰드/금형, 운동역학, 패턴, 소재, 컬러, QC 의견을 함께 확인하세요.",
+      graph:renderManagerAgentGraph(brief),
+      cards:[
+        {title:"R&D 선검토 판단",body:brief.take},
+        {title:"주목할 부분",items:brief.focus},
+        {title:"생산시 유의사항",items:brief.watch},
+        {title:"작업지시 전 다음 액션",items:brief.actions}
+      ]
+    },
+    sectionAgent(final,{id:"last",assetId:"last_specialist",label:"라스트",initial:"라",name:"라스트 분석가",role:"리스트, 토스프링, 힐스프링, 발볼/볼거스 후보값 제안",section:"last_spec",summaryLabel:"라스트 총평 요약",keys:["focus","last_type","toe_shape","toe_spring_mm","heel_spring_mm","toe_box_height_mm","instep_girth","ball_girth","last_pitch"],department:department.development}),
+    sectionAgent(final,{id:"mold",assetId:"mold_specialist",label:"몰드/금형",initial:"몰",name:"몰드/금형 분석가",role:"금형·솔 수치와 아웃솔 상세 후보값 제안",section:"mold_spec",summaryLabel:"몰드/금형 총평 요약",keys:["heel_midsole_height_mm","forefoot_midsole_height_mm","drop_mm","outsole_toe_lift_mm","lug_height_mm","lug_pattern","midsole_hardness_shore_c","outsole_rubber_coverage","target_weight_240mm"],department:department.development}),
+    sectionAgent(final,{id:"biomechanics",assetId:"biomechanics_specialist",label:"운동역학",initial:"운",name:"운동역학 전문가",role:"보행 안정성, 굴곡 위치, 뒤틀림 리스크 해석",section:"biomechanics_analysis",summaryLabel:"운동역학 총평 요약",keys:["ground_contact_stability","flex_point_estimate","toe_off_behavior","torsional_stability","cushioning_response","motion_risk","waist_contact_width_ratio"],department:department.development}),
+    sectionAgent(final,{id:"pattern",assetId:"pattern_specialist",label:"패턴",initial:"패",name:"패턴 분석가",role:"패턴 구조, 공법, 정렬 리스크 분석",section:"pattern_analysis",summaryLabel:"패턴 총평 요약",keys:["construction_method","vamp_line","vamp_method","quarter_method","collar_shape","heel_tab_style","logo_width","logo_method","logo_position","toe_cap_style","heel_structure","overlap_width_if_nosew","alignment_risk"],department:department.design}),
+    sectionAgent(final,{id:"material",assetId:"upper_material_specialist",label:"어퍼 소재",initial:"소",name:"어퍼 소재 분석가",role:"메쉬, 신세틱, 라이닝, 패딩 소재 내구성 분석",section:"material_spec",summaryLabel:"어퍼 소재 총평 요약",keys:["mesh_type","synthetic_type","nosew_film_present","lining_visible","material_durability_risk","material_count","main_upper_material_candidates","tongue_foam","collar_padding","lining_foam"],department:department.material}),
+    sectionAgent(final,{id:"planner",assetId:"shoe_designer",label:"슈즈 기획",initial:"기",name:"슈즈 기획",role:"디자인 방향, 시장 포지션, 상품성 분석",section:"design_review",summaryLabel:"슈즈 기획 총평 요약",keys:["silhouette","market_position","trend_direction","similar_product_reference","target_consumer","planning_position","design_strengths","design_style","raw_category"],department:department.design}),
+    sectionAgent(final,{id:"color",assetId:"color_specialist",label:"컬러/CMF",initial:"컬",name:"컬러 전문가",role:"메인/악센트 컬러, 소재별 컬러 재현성, 오염/이염 리스크 분석",section:"color_spec",summaryLabel:"컬러/CMF 총평 요약",keys:["dominant_color_group","accent_colors","color_main","color_accent","color_sole","color_lace","color_scheme","material_color_match_risk","color_deviation_risk","stain_or_migration_risk","color_quality_risk"],department:department.production_qc}),
+    qcAgent(final)
+  ];
+  return agents.map(agent=>({
+    ...agent,
+    cards:(agent.cards||[]).filter(card=>Array.isArray(card.items)?card.items.length:card.body)
+  }));
+}
+
+function sectionAgent(final,config){
+  const entries=config.keys.map(key=>sectionFieldOpinion(final,config.section,key)).filter(Boolean);
+  const summary=compact(config.department||entries.map(item=>`${item.label} ${item.value}`).slice(0,3).join(" · ")||"",260);
+  const evidence=entries.map(item=>item.evidence||item.notes).filter(Boolean).slice(0,4).map(item=>compact(item,150));
+  const recheck=entries.filter(item=>/자료 없음|재검수|샘플|not_found|recheck|low/i.test(`${item.value} ${item.status} ${item.notes}`)).map(item=>`${item.label}: ${item.value}`).slice(0,4);
+  return {
+    id:config.id,assetId:config.assetId,label:config.label,initial:config.initial,name:config.name,role:config.role,summaryLabel:config.summaryLabel,
+    summary,
+    note:evidence[0]||"",
+    graph:renderAgentGraph(config.id,entries),
+    cards:[
+      {title:"핵심 판단",items:entries.slice(0,4).map(item=>`${item.label}: ${item.value}`)},
+      {title:"근거/메모",items:evidence},
+      {title:"확인 포인트",items:recheck.length?recheck:entries.slice(0,3).map(item=>`${item.label} 샘플 실측/담당 확인`)},
+      {title:"담당 수치/항목",items:entries.slice(0,6).map(item=>`${item.label} ${item.value}`)}
+    ]
+  };
+}
+
+function sectionFieldOpinion(final,section,key){
+  if(!shouldDisplaySpecField(section,key)) return null;
+  const data=final?.sections?.[section]?.[key];
+  if(data===undefined) return null;
+  const value=compactSpecValue(displaySpecValue(data,key),key);
+  if(!value) return null;
+  return {
+    key,
+    label:label(key),
+    value,
+    number:parseSpecNumber(value),
+    status:text(data?.status||""),
+    notes:text(data?.notes||""),
+    evidence:text(data?.evidence||"")
+  };
+}
+
+function qcAgent(final){
+  const checklist=final?.qc?.quality_checklist||final?.sections?.quality_checklist||{};
+  const entries=Object.entries(checklist).map(([key,data])=>({
+    label:label(key),
+    value:compactSpecValue(displaySpecValue(data,key),key),
+    notes:text(data?.notes||data?.evidence||"")
+  })).filter(item=>item.value).slice(0,8);
+  const recheck=final?.qc?.recheck||{};
+  return {
+    id:"qc",assetId:"qc_specialist",label:"QC",initial:"Q",name:"QC 분석가",role:"누락, 모순, 낮은 confidence, 재검수 항목 검증",
+    summaryLabel:"QC 총평 요약",
+    summary:recheck.required?"재검수 필요 항목과 샘플 확인 포인트를 기준으로 품질 게이트를 점검했습니다.":"저장 결과 기준 주요 QC 항목을 확인했습니다.",
+    note:Array.isArray(recheck.reasons)&&recheck.reasons.length?`재검수 사유 ${recheck.reasons.length}건이 기록되어 있습니다.`:"",
+    graph:renderQcAgentGraph(entries,recheck),
+    cards:[
+      {title:"QC 체크",items:entries.slice(0,4).map(item=>`${item.label}: ${item.value}`)},
+      {title:"근거/메모",items:entries.map(item=>item.notes).filter(Boolean).slice(0,4).map(item=>compact(item,150))},
+      {title:"재검수 사유",items:Array.isArray(recheck.reasons)?[...new Set(recheck.reasons)].slice(0,5):[]},
+      {title:"품질 게이트",body:"컬러 편차, 접착/마모, 굴곡, 미끄럼 등 샘플 단계 확인 항목을 우선 점검하세요."}
+    ]
+  };
+}
+
+function renderManagerAgentGraph(brief){
+  const rows=[
+    ["주목",brief.focus?.length||0,(brief.focus||[])[0]||"주요 개발 포인트"],
+    ["유의",brief.watch?.length||0,(brief.watch||[])[0]||"생산/품질 확인"],
+    ["액션",brief.actions?.length||0,(brief.actions||[])[0]||"작업지시 전 확인"],
+    ["총평",brief.take?1:0,brief.take||brief.identity||"전체 방향 확인"]
+  ];
+  return `<div class="agent-graph">
+    <div class="agent-graph-title">총괄 판단 맵<span>R&D 요약 기반</span></div>
+    <div class="generic-agent-grid">${rows.map(([title,count,body])=>`<div class="generic-agent-chip"><b>${esc(title)} ${count?`· ${count}`:""}</b><span>${esc(compact(body,64))}</span></div>`).join("")}</div>
+  </div>`;
+}
+
+function renderAgentGraph(agentId,entries){
+  if(agentId==="last") return renderLastAgentGraph(entries);
+  if(agentId==="mold") return renderMoldAgentGraph(entries);
+  if(agentId==="biomechanics") return renderBiomechAgentGraph(entries);
+  const titles={pattern:"패턴 구조 맵",material:"소재 확인 맵",planner:"기획 포지션 맵",color:"CMF 확인 맵"};
+  return renderGenericAgentGraph(titles[agentId]||"담당 항목 맵",entries);
+}
+
+function renderLastAgentGraph(entries){
+  const callouts=[
+    ["ball_girth",21,34],
+    ["instep_girth",34,24],
+    ["toe_box_height_mm",56,62],
+    ["toe_spring_mm",47,78],
+    ["last_pitch",60,78],
+    ["heel_spring_mm",88,70]
+  ].map(([key,x,y])=>({entry:entryByKey(entries,key),x,y})).filter(item=>item.entry);
+  const chips=["last_type","toe_shape","width_grade"].map(key=>entryByKey(entries,key)).filter(Boolean);
+  return `<div class="agent-graph">
+    <div class="agent-graph-title">라스트 스펙 일러스트<span>위치 이해용</span></div>
+    <div class="last-agent-graph-frame">
+      <svg class="last-agent-svg" viewBox="0 0 720 210" role="img" aria-label="라스트 스펙 일러스트">
+        <defs><linearGradient id="liveLastAgentFill" x1="0" x2="1"><stop offset="0" stop-color="#0b1c2d"/><stop offset="1" stop-color="#173444"/></linearGradient></defs>
+        <path d="M34 82 C50 34 154 32 197 55 C246 81 315 95 394 71 C447 55 500 72 514 104 C526 132 501 153 439 159 C340 168 272 184 189 196 C113 206 42 164 34 82 Z" fill="rgba(103,212,232,.10)" stroke="#67d4e8" stroke-width="2"/>
+        <path d="M46 86 C157 84 268 82 379 80 C473 77 548 74 665 72" fill="none" stroke="#8db8ef" stroke-width="2" opacity=".85"/>
+        <path d="M278 168 C370 142 442 99 535 39 C604 38 656 39 682 45 C696 77 711 134 686 159 C583 174 451 171 321 186 C250 194 191 197 122 196" fill="url(#liveLastAgentFill)" stroke="#67d4e8" stroke-width="2"/>
+        <line x1="142" y1="32" x2="142" y2="192" stroke="#8db8ef" stroke-width="1.5" opacity=".78"/>
+        <line x1="672" y1="44" x2="672" y2="166" stroke="#8db8ef" stroke-width="1.5" opacity=".78"/>
+        <text x="133" y="31" fill="#dce8ff" font-size="13" font-weight="900">B</text>
+        <text x="427" y="102" fill="#dce8ff" font-size="13" font-weight="900">C</text>
+        <text x="351" y="127" fill="#dce8ff" font-size="13" font-weight="900">D</text>
+        <text x="297" y="146" fill="#dce8ff" font-size="13" font-weight="900">E</text>
+        <text x="631" y="195" fill="#dce8ff" font-size="12" font-weight="900">heel</text>
+      </svg>
+      ${callouts.map(({entry,x,y})=>`<div class="last-agent-callout" style="--x:${x}%;--y:${y}%"><b>${esc(entry.label)}</b>${esc(entry.value)}</div>`).join("")}
+    </div>
+    ${chips.length?`<div class="visual-chip-row">${chips.map(item=>`<span>${esc(item.label)} ${esc(item.value)}</span>`).join("")}</div>`:""}
+  </div>`;
+}
+
+function renderMoldAgentGraph(entries){
+  const keys=["heel_midsole_height_mm","forefoot_midsole_height_mm","drop_mm","outsole_toe_lift_mm","lug_height_mm","target_weight_240mm"];
+  const rows=keys.map(key=>entryByKey(entries,key)).filter(Boolean);
+  if(!rows.length) return renderGenericAgentGraph("솔 수치 맵",entries);
+  return `<div class="agent-graph">
+    <div class="agent-graph-title">솔 수치 밸런스<span>값 크기 비례</span></div>
+    <div class="mold-agent-bars">${rows.map(item=>`<div class="mold-agent-bar">
+      <span>${esc(item.label)}</span>
+      <div class="mold-agent-track"><div class="mold-agent-fill" style="width:${metricPercent(item)}%"></div></div>
+      <b class="mold-agent-value">${esc(item.value)}</b>
+    </div>`).join("")}</div>
+  </div>`;
+}
+
+function renderBiomechAgentGraph(entries){
+  const stages=[
+    ["착지","ground_contact_stability","접지 안정성"],
+    ["지지","torsional_stability","비틀림 안정성"],
+    ["전환","motion_risk","모션 리스크"],
+    ["굴곡","flex_point_estimate","굴곡 타이밍"],
+    ["토오프","toe_off_behavior","토오프 보조"],
+    ["충격","cushioning_response","쿠셔닝 반응"]
+  ].map(([stage,key,fallback],index)=>{
+    const entry=entryByKey(entries,key)||{label:fallback,value:"자료 없음",number:null};
+    const level=biomechLevel(entry.value,key);
+    return {stage,entry,index,level};
+  });
+  return `<div class="agent-graph">
+    <div class="agent-graph-title">운동역학 인포그래픽<span>단계별 해석</span></div>
+    <div class="biomech-flow">${stages.map(item=>`<span>${esc(item.stage)}</span>`).join("")}</div>
+    <div class="biomech-stage-grid">${stages.map(item=>`<div class="biomech-stage-card">
+      <div class="biomech-stage-head"><i>${String(item.index+1).padStart(2,"0")}</i><strong>${esc(item.entry.label)}</strong><span>${esc(biomechLevelLabel(item.level))}</span></div>
+      <div class="biomech-stage-track">${[1,2,3].map(n=>`<span class="${n<=item.level?"active":""}"></span>`).join("")}</div>
+      <div class="biomech-stage-note">${esc(compact(item.entry.value,58))}</div>
+    </div>`).join("")}</div>
+  </div>`;
+}
+
+function renderGenericAgentGraph(title,entries){
+  const rows=(entries||[]).slice(0,4);
+  if(!rows.length) return "";
+  return `<div class="agent-graph">
+    <div class="agent-graph-title">${esc(title)}<span>담당 항목 기반</span></div>
+    <div class="generic-agent-grid">${rows.map(item=>`<div class="generic-agent-chip"><b>${esc(item.label)}</b><span>${esc(item.value)}</span></div>`).join("")}</div>
+  </div>`;
+}
+
+function renderQcAgentGraph(entries,recheck){
+  const rows=(entries||[]).slice(0,3);
+  const reasons=Array.isArray(recheck?.reasons)?recheck.reasons:[];
+  const chips=[
+    {label:"체크 항목",value:`${entries.length}개`},
+    {label:"재검수",value:recheck?.required?`${Math.max(1,reasons.length)}건`:"없음"},
+    ...rows.map(item=>({label:item.label,value:item.value}))
+  ].slice(0,4);
+  return `<div class="agent-graph">
+    <div class="agent-graph-title">QC 게이트<span>저장 결과 기준</span></div>
+    <div class="generic-agent-grid">${chips.map(item=>`<div class="generic-agent-chip"><b>${esc(item.label)}</b><span>${esc(compact(item.value,60))}</span></div>`).join("")}</div>
+  </div>`;
+}
+
+function entryByKey(entries,key){
+  return (entries||[]).find(item=>item.key===key)||null;
+}
+
+function metricPercent(entry){
+  const value=Number(entry?.number);
+  if(!Number.isFinite(value)) return 48;
+  const key=entry.key||"";
+  const max=key.includes("weight")?450:key.includes("drop")?16:key.includes("lug")?8:key.includes("lift")||key.includes("spring")?26:42;
+  return Math.max(18,Math.min(100,(value/max)*100));
+}
+
+function biomechLevel(value,key=""){
+  const raw=String(value||"").toLowerCase();
+  if(/높|high|양호|good|stable|안정/.test(raw)&&!/낮|low|주의|risk|불안/.test(raw)) return 3;
+  if(/낮|low|주의|risk|불안|재검|확인/.test(raw)) return key==="motion_risk"?1:2;
+  if(/중간|보통|mid|moderate/.test(raw)) return 2;
+  return 2;
+}
+
+function biomechLevelLabel(level){
+  return level>=3?"양호":level<=1?"주의":"보통";
+}
+
+function renderAnalyzerBrief(brief){
+  return `<div class="brief-stack">
+    <div class="brief-card primary">
+      <strong>R&D 총괄 브리핑</strong>
+      <h3>${esc(brief.title)}</h3>
+      <p>${esc(brief.identity||"제품 정체성과 주요 개발 관점을 확인하세요.")}</p>
+    </div>
+    <div class="brief-card"><strong>총괄 판단</strong><p>${esc(brief.take)}</p></div>
+    ${brief.focus.length?`<div class="brief-card"><strong>주목할 부분</strong><ul>${brief.focus.map(item=>`<li>${esc(item)}</li>`).join("")}</ul></div>`:""}
+    ${brief.watch.length?`<div class="brief-card"><strong>리스크/확인 포인트</strong><ul>${brief.watch.map(item=>`<li>${esc(item)}</li>`).join("")}</ul></div>`:""}
+    ${brief.actions.length?`<div class="brief-card"><strong>다음 액션</strong><ul>${brief.actions.map(item=>`<li>${esc(item)}</li>`).join("")}</ul></div>`:""}
+  </div>`;
+}
+
+function managerBrief(final,runId){
+  const manager=final.manager_brief||final?.sections?._manager_brief||{};
+  const identity=manager.identity||{};
+  const title=identity.product||final.product_name||final.style||"분석 결과";
+  const brand=identity.brand||final.brand||"브랜드 미상";
+  const shoeType=identity.shoe_type||specText(final,"design_review","market_position")||"제품 유형 미상";
+  const take=manager.r_d_take||specText(final,"design_review","brand_mood")||final.summary||"핵심 스펙과 샘플 실측 필요 항목을 함께 확인하세요.";
+  const focus=Array.isArray(manager.focus_points)&&manager.focus_points.length
+    ? manager.focus_points.map(item=>text(item)).slice(0,4)
+    : [
+      specText(final,"design_review","design_strengths"),
+      specText(final,"mold_spec"),
+      specText(final,"material_spec","mesh_type"),
+      specText(final,"biomechanics_analysis","ground_contact_stability")
+    ].filter(Boolean).map(item=>compact(item,130)).slice(0,4);
+  const watch=Array.isArray(manager.watch_points)&&manager.watch_points.length
+    ? manager.watch_points.map(item=>text(item)).slice(0,4)
+    : [
+      specText(final,"design_review","design_risks"),
+      specText(final,"material_spec","material_durability_risk"),
+      specText(final,"mold_spec","tooling_risk"),
+      specText(final,"biomechanics_analysis","motion_risk")
+    ].filter(Boolean).map(item=>compact(item,130)).slice(0,4);
+  const actions=Array.isArray(manager.next_actions)&&manager.next_actions.length
+    ? manager.next_actions.map(item=>text(item)).slice(0,4)
+    : [
+      specText(final,"design_review","recommendations"),
+      specText(final,"mold_spec","midsole_hardness_shore_c"),
+      "샘플 실측, 착화 안정성, 접합/마모 내구를 우선 확인하세요."
+    ].filter(Boolean).slice(0,4);
+  return {
+    title,
+    identity:`${brand} 제품 ${title}: ${compact(shoeType,110)}입니다.`,
+    take:compact(take,220),
+    focus,
+    watch,
+    actions:actions.length?actions.map(item=>compact(item,150)):[`최신 run ${runId}의 Raw JSON을 확인하세요.`]
+  };
+}
+
+function specText(final,section,key){
+  const value=final?.sections?.[section]?.[key];
+  return text(value?.value??value);
+}
+
+function renderImages(assets){
+  if(!assets.length) return "";
+  return `<div class="image-grid">${assets.slice(0,12).map(asset=>{
+    const url=asset.public_url||asset.url;
+    return url?`<div class="image-card"><img src="${esc(url)}" alt=""><span>${esc(asset.view_name||asset.view||asset.file_name||asset.name)}</span></div>`:"";
+  }).join("")}</div>`;
+}
+
+function renderMetricGrid(sections){
+  const metrics=displaySpecFields(collectSpecFields(sections)).filter(field=>isPrimary(field.key,field.data)).sort((a,b)=>specPriority(a.key)-specPriority(b.key)).slice(0,20);
+  if(!metrics.length) return '<div class="empty" style="min-height:160px">표시할 치수형 필드가 없습니다.</div>';
+  return `<div class="analysis-metric-grid">${metrics.map(field=>{
+    const status=fieldStatus(field.data);
+    const rawValue=displaySpecValue(field.data,field.key);
+    const value=compactSpecValue(rawValue,field.key);
+    const needs=/needs_sample_measurement|recheck|not_found/i.test(rawValue)||/미확정|재검수|자료 없음/.test(value)||/needs_sample_measurement|recheck|not_found/i.test(field.data?.status||"");
+    return `<div class="analysis-metric-card status-${safeClassName(status)}">
+      <div class="analysis-metric-label">${esc(label(field.key))}</div>
+      <div class="analysis-metric-value ${needs?"needs":""}">${formatValueHtml(value,status)}</div>
+      <div class="analysis-metric-meta">
+        ${field.data?.status?`<span class="spec-pill ${safeClassName(field.data.status)}">${esc(statusLabel(field.data.status))}</span>`:""}
+        ${Number.isFinite(Number(field.data?.confidence))?`<span class="spec-pill conf-${confidenceClass(field.data.confidence)}">신뢰 ${Number(field.data.confidence).toFixed(2)}</span>`:""}
+      </div>
+      <div class="analysis-source">${esc(sourceShort(field.data?.source||field.section||""))}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function renderSections(sections){
+  const entries=orderedSectionEntries(sections||{});
+  if(!entries.length) return '<div class="empty" style="min-height:220px">sections 값이 없습니다.</div>';
+  return `<div class="spec-grid">${entries.map(([name,payload])=>{
+    const fields=displaySpecFields(collectSpecFields(payload),name).filter(field=>field.data?.value!==undefined);
+    if(!fields.length) return "";
+    return `<details class="spec-card section-${safeClassName(name)}" open>
+      <summary><span>${esc(sectionLabel(name))}</span><span class="spec-pill">${fields.length}개 항목</span></summary>
+      <div class="spec-body"><div class="dashboard-field-grid">${fields.map(field=>renderDashboardValueCard(field)).join("")}</div></div>
+    </details>`;
+  }).join("")}</div>`;
+}
+
+function orderedSectionEntries(sections){
+  const priority=["last_spec","mold_spec","outsole_spec","material_spec","arch_waist_spec","midsole_material_spec","accessory_spec","pattern_analysis","biomechanics_analysis","color_spec","design_review"];
+  const entries=Object.entries(visibleAnalysisSections(sections||{}));
+  const order=new Map(priority.map((name,index)=>[name,index]));
+  return entries.sort(([a],[b])=>(order.get(a)??999)-(order.get(b)??999)||sectionLabel(a).localeCompare(sectionLabel(b),"ko"));
+}
+
+function visibleAnalysisSections(sections){
+  return Object.fromEntries(Object.entries(sections||{}).filter(([name])=>!hiddenSectionNames.has(canonicalSection(name))));
+}
+
+function displaySpecFields(fields,sectionName=""){
+  const hiddenLastKeys=new Set([
+    "matched_last_data_no",
+    "real_last_toe_spring_mm",
+    "real_last_instep_girth_mm",
+    "real_last_ball_girth_mm",
+    "visual_estimated_toe_spring_mm",
+    "visual_estimated_instep_girth",
+    "visual_estimated_ball_girth",
+    "pattern_no",
+    "mold_dim_drawing_last_no"
+  ]);
+  return fields.filter(field=>{
+    const section=canonicalSection(sectionName||field.section||"");
+    const key=String(field.key||"");
+    if(!shouldDisplaySpecField(section,key)) return false;
+    if(section==="last_spec"&&hiddenLastKeys.has(field.key)) return false;
+    return true;
+  });
+}
+
+function shouldDisplaySpecField(section,key){
+  const canonical=canonicalSection(section);
+  const field=String(key||"");
+  if(hiddenSectionNames.has(canonical)) return false;
+  if(removedSpecFields.has(field)) return false;
+  const allowed=currentSectionFields[canonical];
+  if(allowed&&!allowed.has(field)) return false;
+  return true;
+}
+
+function canonicalSection(section){
+  const raw=String(section||"");
+  return sectionAliases[raw]||raw;
+}
+
+function displaySpecValue(data,key=""){
+  const value=data?.value??data;
+  if(value&&typeof value==="object"&&!Array.isArray(value)&&/ball_girth/i.test(key)){
+    const parts=[
+      ["C_60_ball","60%"],
+      ["D_70_ball","70%"],
+      ["E_80_ball","80%"]
+    ].map(([source,label])=>value[source]?`${label} ${value[source]}`:"").filter(Boolean);
+    if(parts.length) return parts.join(" / ");
+  }
+  return text(value);
+}
+
+function renderDashboardValueCard(field){
+  const data=field.data||{};
+  const status=fieldStatus(data);
+  const rawValue=displaySpecValue(data,field.key);
+  const detail=[data.evidence?`근거: ${text(data.evidence)}`:"",data.notes?`메모: ${text(data.notes)}`:""].filter(Boolean).join("\n\n");
+  const zoneDetails=field.key==="reinforcement_zones"?renderZoneDetails(data):"";
+  const hasZoneDetails=Boolean(zoneDetails);
+  const zoneCount=Array.isArray(data.zone_details)?data.zone_details.length:0;
+  const value=hasZoneDetails&&zoneCount?`${zoneCount}개 부위 보강 적용`:compactSpecValue(rawValue,field.key);
+  const needs=/needs_sample_measurement|recheck|not_found/i.test(rawValue)||/미확정|재검수|자료 없음/.test(value)||/needs_sample_measurement|recheck|not_found/i.test(data.status||"");
+  return `<div class="analysis-metric-card compact ${hasZoneDetails?"has-zone-details":""} status-${safeClassName(status)}">
+    <div class="analysis-metric-label">${esc(label(field.key))}</div>
+    <div class="analysis-metric-value ${needs?"needs":""}">${formatValueHtml(value,status)}</div>
+    <div class="analysis-metric-meta">
+      ${data.status?`<span class="spec-pill ${safeClassName(data.status)}">${esc(statusLabel(data.status))}</span>`:""}
+      ${Number.isFinite(Number(data.confidence))?`<span class="spec-pill conf-${confidenceClass(data.confidence)}">신뢰 ${Number(data.confidence).toFixed(2)}</span>`:""}
+    </div>
+    <div class="analysis-source">${esc(sourceShort(data.source||field.section||""))}</div>
+    ${data.owner?`<div class="spec-meta"><span class="spec-pill">담당: ${esc(data.owner)}</span></div>`:""}
+    ${zoneDetails}
+    ${detail?`<details class="spec-detail"><summary>근거/메모 보기</summary><div class="spec-evidence">${esc(compact(detail,520))}</div></details>`:""}
+  </div>`;
+}
+
+function renderZoneDetails(data){
+  const zones=Array.isArray(data?.zone_details)?data.zone_details:[];
+  if(!zones.length) return "";
+  return `<div class="zone-table">${zones.map((zone,index)=>{
+    const title=zone.zone||zone.name||`부위 ${index+1}`;
+    const confidence=Number(zone.confidence);
+    const rows=[
+      ["보강 방식", zone.reinforcement_type],
+      ["소재 추정", zone.material_guess],
+      ["패턴 역할", zone.pattern_role],
+      ["부착", zone.attachment]
+    ].filter(([,value])=>value!==undefined&&value!==null&&String(value).trim());
+    return `<div class="zone-item">
+      <div class="zone-title"><span>${esc(title)}</span>${Number.isFinite(confidence)?`<span class="spec-pill conf-${confidenceClass(confidence)}">신뢰 ${confidence.toFixed(2)}</span>`:""}</div>
+      <div class="zone-detail">${rows.map(([label,value])=>`<strong>${esc(label)}</strong><span>${esc(text(value))}</span>`).join("")}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function collectSpecFields(data,section="",path=[]){
+  if(isSpecField(data)) return [{section,key:path[path.length-1]||section,path:path.join("."),data}];
+  if(Array.isArray(data)) return data.flatMap((item,index)=>collectSpecFields(item,section,[...path,String(index+1)]));
+  if(data&&typeof data==="object") return Object.entries(data).flatMap(([key,value])=>collectSpecFields(value,section||key,[...path,key]));
+  return [];
+}
+
+function isSpecField(data){
+  return data&&typeof data==="object"&&!Array.isArray(data)&&["value","status","confidence","source","evidence","notes","owner"].some(key=>key in data);
+}
+
+function isPrimary(key,data){
+  const k=String(key||"").toLowerCase();
+  const v=text(data?.value??data).toLowerCase();
+  if(["toe_shape","lug_pattern","width_grade"].includes(k)) return false;
+  return /_mm$|height|width|drop|spring|shore|hardness|coverage|weight|stack|girth|pitch|depth|ratio|thickness|density|gravity|rebound|compression|tolerance/.test(k)||/\d+(?:\.\d+)?(?:\s*[-~–]\s*\d+(?:\.\d+)?)?\s*(mm|cm|%|shore|g|kg|oz|회|kgf\/cm)\b/.test(v);
+}
+
+function metricClass(data){
+  const status=String(data?.status||"");
+  const confidence=Number(data?.confidence);
+  if(status==="detected"||confidence>=0.7) return "good";
+  if(status==="external_research"||/coverage|rubber|mesh|color/i.test(text(data?.value??data))) return "info";
+  return "";
+}
+
+function fieldStatus(data){
+  return String(data?.status||data?.source_type||"value");
+}
+
+function safeClassName(value){
+  return String(value||"value").toLowerCase().replace(/[^a-z0-9_-]+/g,"_").replace(/^_+|_+$/g,"")||"value";
+}
+
+function confidenceClass(confidence){
+  const value=Number(confidence);
+  if(!Number.isFinite(value)) return "mid";
+  if(value>=0.66) return "high";
+  if(value>=0.45) return "mid";
+  return "low";
+}
+
+function specPriority(key){
+  const order=["heel_midsole_height_mm","forefoot_midsole_height_mm","drop_mm","outsole_toe_lift_mm","toe_spring_mm","heel_spring_mm","lug_height_mm","outsole_thickness","outsole_base_rubber_thickness_mm","outsole_local_pad_thickness_mm","outsole_lug_protrusion_mm","outsole_lug_block_thickness_mm","outsole_groove_depth_mm","forefoot_contact_width_mm","heel_contact_width_mm","toe_box_height_mm","heel_cup_height_mm","instep_girth","ball_girth","bridge_thickness","waist_width_ratio","midsole_hardness_shore_c","outsole_rubber_coverage","target_weight_240mm","width_grade","toe_shape"];
+  const index=order.indexOf(key);
+  return index===-1?999:index;
+}
+
+function compactSpecValue(value,key=""){
+  const out=compact(text(value),key&&/(risk|recommend|strength|position|mood|type|pattern|shape|color)/i.test(key)?150:72);
+  return out
+    .replace(/\bneeds_sample_measurement\b/gi,"샘플 실측 필요")
+    .replace(/\brecheck\b/gi,"재검수 필요")
+    .replace(/\bnot_found\b/gi,"자료 없음")
+    .replace(/\bestimated_from_visual\b/gi,"시각 추정")
+    .replace(/\binferred_from_guideline\b/gi,"지침 추론")
+    .replace(/\bexternal_research\b/gi,"외부 리서치")
+    .replace(/\bdetected\b/gi,"감지");
+}
+
+function formatValueHtml(value,status=""){
+  const escaped=esc(value);
+  return escaped.replace(/(\d+(?:\.\d+)?(?:\s*[-~–]\s*\d+(?:\.\d+)?)?)(\s*)(mm|cm|%|shore\s*[a-z]?|g|kg|oz)\b/gi,(_,num,space,unit)=>`<span class="value-number">${num}</span>${space}<span class="value-unit">${unit}</span>`);
+}
+
+function sourceShort(source){
+  const raw=text(source);
+  return raw
+    .replace(/visual_analysis/gi,"시각 분석")
+    .replace(/estimated_from_visual/gi,"시각 분석")
+    .replace(/external_research/gi,"외부 리서치")
+    .replace(/perspective/gi,"사선")
+    .replace(/outsole/gi,"아웃솔")
+    .replace(/side/gi,"사이드")
+    .replace(/top/gi,"상면")
+    .replace(/rear/gi,"후면")
+    .replace(/\.(jpg|jpeg|png|webp)/gi," 이미지")
+    .replace(/\s+/g," ")
+    .slice(0,90);
+}
+
+function showTab(name,button){
+  document.querySelectorAll(".tabs button").forEach(btn=>btn.classList.remove("active"));
+  button.classList.add("active");
+  document.querySelectorAll(".section").forEach(section=>section.classList.remove("active"));
+  $(`tab-${name}`).classList.add("active");
+}
+
+async function api(path,options={}){
+  if(hasStaticSupabaseConfig()){
+    return staticSupabaseApi(path,options);
+  }
+  const res=await fetch(path,{cache:"no-store",...options});
+  if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+function hasStaticSupabaseConfig(){
+  const config=window.PRODUCTS_RND_VIEWER_SUPABASE||{};
+  return Boolean(config.url&&config.anonKey);
+}
+
+async function staticSupabaseApi(path,options={}){
+  if(options.method&&options.method!=="GET"){
+    throw new Error("정적 배포판은 보기 전용입니다.");
+  }
+  const config=window.PRODUCTS_RND_VIEWER_SUPABASE||{};
+  const parsed=new URL(path,window.location.href);
+  const headers={
+    apikey:config.anonKey,
+    Authorization:`Bearer ${config.anonKey}`,
+    Accept:"application/json"
+  };
+  const request=async (table,params)=>{
+    const url=`${config.url.replace(/\/$/,"")}/rest/v1/${table}?${params.toString()}`;
+    const res=await fetch(url,{headers,cache:"no-store"});
+    if(!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    return res.json();
+  };
+  if(parsed.pathname.endsWith("/api/status")){
+    return {ok:true,mode:"supabase",can_delete:false,static:true};
+  }
+  if(parsed.pathname.endsWith("/api/products")){
+    const baseSelect="product_id,style,brand,product_name,display_name,color,sku,price,currency,source_url,analysis_count,latest_run_id,latest_run_updated_at,analysis_status,representative_image_url,tags";
+    const params=new URLSearchParams({
+      select:`${baseSelect},metadata`,
+      order:"latest_run_updated_at.desc.nullslast,product_name.asc",
+      published:"eq.true"
+    });
+    const status=parsed.searchParams.get("status")||"";
+    if(status) params.set("analysis_status",`eq.${status}`);
+    let rawRows;
+    try{
+      rawRows=await request("product_cards",params);
+    }catch(err){
+      params.set("select",baseSelect);
+      rawRows=await request("product_cards",params);
+    }
+    let rows=normalizeProducts(rawRows);
+    const ownership=parsed.searchParams.get("ownership")||"";
+    if(ownership) rows=rows.filter(row=>row.ownership===ownership);
+    const needle=(parsed.searchParams.get("q")||"").trim().toLowerCase();
+    return {
+      products:needle?rows.filter(row=>["brand","product_name","display_name","color","sku","ownership_label","category","season","project_code"].map(key=>String(row[key]||"")).join(" ").toLowerCase().includes(needle)):rows,
+      mode:"supabase"
+    };
+  }
+  const productRunsMatch=parsed.pathname.match(/\/api\/products\/([^/]+)\/runs$/);
+  if(productRunsMatch){
+    const productId=decodeURIComponent(productRunsMatch[1]);
+    const params=new URLSearchParams({
+      select:"run_id,product_id,run_type,analysis_status,created_at,updated_at,json_storage_path",
+      product_id:`eq.${productId}`,
+      order:"updated_at.desc"
+    });
+    return {runs:await request("analysis_runs",params),mode:"supabase"};
+  }
+  const runMatch=parsed.pathname.match(/\/api\/runs\/([^/]+)$/);
+  if(runMatch){
+    const runId=decodeURIComponent(runMatch[1]);
+    const params=new URLSearchParams({
+      select:"run_id,product_id,run_type,analysis_status,created_at,updated_at,final_analysis,coverage,analysis_assets(*)",
+      run_id:`eq.${runId}`,
+      limit:"1"
+    });
+    const rows=await request("analysis_runs",params);
+    if(!rows.length) throw new Error("run not found");
+    return {run:{...rows[0],assets:rows[0].analysis_assets||[]},mode:"supabase"};
+  }
+  throw new Error(`지원하지 않는 정적 API 경로: ${path}`);
+}
+
+function debounce(fn,delay){let timer;return (...args)=>{clearTimeout(timer);timer=setTimeout(()=>fn(...args),delay)}}
+function productsSignature(products,mode,canDelete){
+  return JSON.stringify({
+    mode,
+    canDelete,
+    products:products.map(product=>[
+      product.product_id,
+      product.product_name,
+      product.display_name,
+      product.brand,
+      product.color,
+      product.sku,
+      product.price,
+      product.currency,
+      product.ownership,
+      product.analysis_status,
+      product.analysis_count,
+      product.latest_run_id,
+      product.latest_run_updated_at,
+      product.representative_image_url
+    ])
+  });
+}
+function cssEscape(value){
+  if(window.CSS?.escape) return CSS.escape(String(value));
+  return String(value).replace(/["\\]/g,"\\$&");
+}
+function compact(value,max){const out=text(value).replace(/\s+/g," ").trim();return out.length>max?`${out.slice(0,max)}...`:out}
+function normalizeOwnership(value){
+  const raw=String(value||"").trim().toLowerCase();
+  if(!raw) return "";
+  if(["internal","own","owned","inhouse","in-house","our","ours","company","fnf","f&f","self","자사","내부","당사","자체"].includes(raw)) return "internal";
+  if(["competitor","external","market","benchmark","third_party","third-party","other","rival","타사","외부","경쟁사","벤치마크"].includes(raw)) return "competitor";
+  if(["자사","내부","당사","own","internal","inhouse","in-house"].some(token=>raw.includes(token))) return "internal";
+  if(["타사","외부","경쟁","competitor","external","benchmark"].some(token=>raw.includes(token))) return "competitor";
+  return "";
+}
+function ownershipLabel(value){return ({internal:"자사",competitor:"타사"}[value]||"미분류")}
+function statusLabel(value){return ({complete:"분석 완료",not_analyzed:"미분석",error:"오류",real_data:"실데이터",real_data_base_last_match:"기준 라스트 실데이터",derived_from_real_last_spec:"라스트 실측 파생",detected:"감지",visual_observation:"시각 관찰",estimated_from_visual:"시각 추정",external_research:"외부 리서치",inferred_from_guideline:"지침 추론",needs_sample_measurement:"샘플 실측 필요",recheck:"재검수 필요",not_found:"자료 없음"}[value]||value||"상태 없음")}
+function sectionLabel(value){return ({last_spec:"라스트",arch_waist_spec:"아치/허리",mold_spec:"몰드/금형",midsole_material_spec:"미드솔 물성",outsole_spec:"아웃솔 상세",material_spec:"소재",pattern_analysis:"패턴",accessory_spec:"부자재",biomechanics_analysis:"생체역학",color_spec:"컬러",design_review:"슈즈 기획",quality_checklist:"품질"}[value]||value)}
+function label(value){
+  return ({
+    toe_shape:"토 셰입",toe_spring_mm:"토 스프링",visual_estimated_toe_spring_mm:"토 스프링(시각 추정 백업)",real_last_toe_spring_mm:"토 스프링(실측)",heel_spring_mm:"힐 스프링",toe_box_height_mm:"토박스 높이",heel_cup_height_mm:"힐컵 높이",width_grade:"발볼/라스트 폭",forefoot_contact_width_mm:"전족부 접지 폭",heel_contact_width_mm:"힐 접지 폭",last_type:"라스트 타입",instep_profile:"발등 기준",focus:"핏 포커스",instep_girth:"인스텝 둘레",visual_estimated_instep_girth:"인스텝 둘레(시각 추정 백업)",real_last_instep_girth_mm:"인스텝 둘레(실측)",ball_girth:"볼 거스",visual_estimated_ball_girth:"볼 거스(시각 추정 백업)",real_last_ball_girth_mm:"볼 거스(실측)",last_pitch:"라스트 피칭",
+    last_name:"라스트 NO",mold_no:"몰드 NO",pattern_no:"패턴 NO",matched_last_data_no:"실측 연결 라스트",real_last_bottom_length_mm:"저부장(실측)",real_last_bottom_width_mm:"저부폭(실측)",real_last_toe_thickness_mm:"토두께(실측)",real_last_stick_length_mm:"스틱장(실측)",
+    waist_cut_depth:"허리 파임",arch_depth:"아치 깊이",waist_width_ratio:"허리폭 비율",bridge_thickness:"브릿지 두께",midfoot_stiffness:"중족부 강성",torsion_stiffness:"토션 강성",torsion_risk:"뒤틀림 리스크",
+    mold_type:"몰드 타입",heel_midsole_height_mm:"힐 미드솔 높이",forefoot_midsole_height_mm:"전족부 미드솔 높이",drop_mm:"드롭",outsole_toe_lift_mm:"아웃솔 토 리프트",midsole_hardness_shore_c:"미드솔 경도 Shore C",outsole_rubber_coverage:"러버 적용 면적비",lug_height_mm:"트레드 돌기 높이",lug_pattern:"러그 패턴",tooling_risk:"금형 리스크",mold_adjustment_type:"몰드 보정",heel_bulge:"힐 벌지",heel_outer_projection:"힐 외측 돌출",mold_shrinkage:"금형 수축",shrinkage_control:"수축 보정",target_weight_240mm:"240mm 완제품 예상 중량",
+    midsole_material_candidates:"미드솔 후보",midsole_material_priority:"미드솔 우선순위",midsole_density_target:"밀도 타깃",midsole_gravity:"미드솔 비중",rebound:"반발탄성",compression_set:"압축변형률",yellowing_risk:"황변 리스크",hydrolysis_risk:"가수분해 리스크",midsole_rank:"미드솔 랭크",midsole_material_reason:"선정 이유",
+    outsole_hardness:"아웃솔 경도",outsole_thickness:"아웃솔 두께 요약",outsole_base_rubber_thickness_mm:"베이스 러버 두께",outsole_local_pad_thickness_mm:"국부 패드/벽 두께",outsole_lug_protrusion_mm:"러그 돌출 높이",outsole_lug_block_thickness_mm:"러그 포함 최대 두께",outsole_groove_depth_mm:"홈/채널 깊이",rubber_gravity:"러버 비중",rubber_density:"러버 밀도",drain_depth:"배수 홈 깊이",contact_ratio:"접지 면적비",forefoot_rubber:"전족 러버",heel_rubber:"힐 러버",midfoot_rubber:"중족 러버",toe_tip_rubber:"토끝 러버",outsole_color:"아웃솔 컬러",outsole_structure:"아웃솔 구조",wet_slip_risk:"습식 미끄럼",
+    mesh_type:"메쉬/니트 구조",synthetic_type:"합성 보강",nosew_film_present:"노쏘 필름",reinforcement_zones:"보강 위치",lining_visible:"라이닝 확인",material_durability_risk:"소재 내구 리스크",material_count:"소재 수",main_upper_material_candidates:"메인 어퍼 후보",synthetic_thickness:"신세틱 두께",mesh_weight:"메쉬 중량",mesh_zone:"메쉬 부위",rib_type:"립/리브 종류",rib_zone:"립 적용 부위",tongue_foam:"베라 폼",collar_padding:"카라 패딩",lining_foam:"내패딩",lining_foam_thickness:"내패딩 두께",
+    pattern_line_type:"패턴 라인",overlay_zones:"오버레이 위치",vamp_line:"뱀프 라인",collar_shape:"카라 형태",heel_tab_style:"힐탭 형태",construction_method:"공법",alignment_risk:"정렬 리스크",minimum_curve_radius:"곡선 R",overlap_width_if_nosew:"노쏘 겹침",logo_position_tolerance:"로고 위치 공차",logo_width:"로고 폭",logo_height:"로고 높이",logo_method:"로고 공법",logo_position:"로고 위치",toe_cap_style:"토캡",heel_structure:"힐 구조",collar_structure:"카라 구조",vamp_method:"선포 공법",quarter_method:"측포 공법",tongue_deco_method:"베라 장식",tongue_foam_method:"베라 폼 공법",pattern_alignment_risk:"패턴 정렬 리스크",
+    lace_type:"신끈 타입",lace_color:"신끈 컬러",lace_width:"신끈 폭",lace_length:"신끈 길이",insole_type:"인솔 타입",insole_material:"인솔 소재",insole_thickness:"인솔 두께",insole_fabric:"인솔 원단",heel_tab_material:"힐탭 소재",heel_tab_color:"힐탭 컬러",heel_tab_width:"힐탭 폭",woven_width:"직조 폭",label_size:"라벨 사이즈",heel_counter:"힐카운터",padding_foam_type:"패딩 폼 타입",
+    cushioning_response:"쿠셔닝 반응",flex_point_estimate:"굴곡 지점",ground_contact_stability:"접지 안정성",motion_risk:"모션 리스크",toe_off_behavior:"토오프",torsional_stability:"비틀림 안정성",
+    dominant_color_group:"메인 컬러",accent_colors:"포인트 컬러",material_color_match_risk:"소재 컬러 매칭",color_deviation_risk:"컬러 편차 리스크",stain_or_migration_risk:"이염/오염 리스크",color_main:"메인 컬러",color_accent:"포인트 컬러",color_sole:"솔 컬러",color_lace:"신끈 컬러",color_scheme:"배색 방향",color_quality_risk:"컬러 품질 리스크",
+    silhouette:"실루엣",brand_mood:"브랜드 무드",design_strengths:"디자인 강점",design_risks:"디자인 리스크",market_position:"시장 포지션",recommendations:"개발 제안",design_style:"디자인 스타일",analysis_note:"분석 노트",raw_category:"원본 카테고리",
+    pattern_curve_tolerance:"패턴 R 공차",nosew_overlap_tolerance:"노쏘 겹침 공차",print_bleed_check:"나염 번짐",bond_strength_check:"접착강도",flex_test_check:"굴곡 테스트",wet_slip_test:"습식 테스트",symmetry_tolerance:"대칭 공차",weight_target_check:"중량 확인",color_chip_requirement:"컬러칩",delta_e_target:"Delta E"
+  }[value]||String(value||"").replace(/_/g," "));
+}
+</script>
+</body>
+</html>
