@@ -23,12 +23,14 @@ button{cursor:pointer}
 .title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .title h1{font-size:18px;line-height:1.2;margin:0;font-weight:850}
 .mode{font-size:10px;color:var(--green);border:1px solid rgba(53,201,139,.45);background:rgba(53,201,139,.1);border-radius:999px;padding:3px 8px;font-weight:850}
-.filters{display:grid;grid-template-columns:1fr 100px 82px;gap:8px}
+.filters{display:grid;grid-template-columns:1fr 100px 82px 36px;gap:8px}
 .filters input,.filters select,.filters button{width:100%;height:34px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:7px;padding:0 10px;outline:none}
 .filters input{grid-column:1/-1}
 .filters input:focus,.filters select:focus,.filters button:focus{border-color:var(--blue)}
 .filters button{font-weight:850;color:var(--cyan)}
 .filters button:hover{border-color:var(--cyan);background:#1b222d}
+.overview-toggle{display:grid;place-items:center;padding:0!important;font-size:16px;line-height:1;color:var(--cyan)!important}
+.overview-toggle.active{border-color:rgba(103,212,232,.6)!important;background:rgba(103,212,232,.12)!important;color:#f2f1ea!important}
 .meta-row{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:10px}
 .list{flex:1 1 auto;min-height:0;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
 .list-group{display:grid;gap:8px}
@@ -109,6 +111,24 @@ button{cursor:pointer}
 .image-lightbox-caption{color:#edf1f7;font-size:13px;font-weight:850;text-align:center}
 .image-lightbox-close{position:absolute;right:-12px;top:-12px;width:34px;height:34px;border:1px solid rgba(255,255,255,.22);border-radius:999px;background:#171b22;color:#edf1f7;font-size:22px;line-height:1;display:grid;place-items:center}
 .image-lightbox-close:hover{border-color:#5aa7ff;color:#5aa7ff}
+.mini-overview-panel{position:fixed;z-index:90;left:392px;top:92px;bottom:18px;width:min(380px,calc(100vw - 420px));display:none;grid-template-rows:auto minmax(0,1fr);border:1px solid rgba(103,212,232,.34);background:rgba(17,21,27,.98);box-shadow:0 18px 40px rgba(0,0,0,.42);border-radius:10px;overflow:hidden}
+.mini-overview-panel.open{display:grid}
+.mini-overview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(90deg,rgba(103,212,232,.09),rgba(255,255,255,.02))}
+.mini-overview-title{display:grid;gap:2px;min-width:0}
+.mini-overview-title strong{font-size:13px;font-weight:950;color:#f2f1ea}
+.mini-overview-title span{font-size:10.5px;font-weight:760;color:#9aa6b5}
+.mini-overview-close{width:28px;height:28px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:#151a21;color:#edf1f7;font-size:18px;line-height:1;display:grid;place-items:center}
+.mini-overview-close:hover{border-color:var(--cyan);color:var(--cyan)}
+.mini-overview-list{min-height:0;overflow:auto;padding:10px;display:grid;gap:7px;align-content:start}
+.mini-overview-card{width:100%;border:1px solid rgba(255,255,255,.12);background:#171b22;border-radius:8px;padding:7px;display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px;text-align:left;color:inherit;transition:.12s}
+.mini-overview-card:hover,.mini-overview-card.active{border-color:rgba(103,212,232,.62);background:#1b222d}
+.mini-overview-thumb{width:48px;height:44px;border-radius:6px;background:#f7f8fb;overflow:hidden;display:grid;place-items:center;color:#8792a2;font-size:9px}
+.mini-overview-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.mini-overview-info{min-width:0;display:grid;gap:3px;align-content:center}
+.mini-overview-name{font-size:12px;font-weight:900;color:#f2f1ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-overview-meta{font-size:10.5px;font-weight:700;color:#9aa6b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-overview-pills{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.mini-overview-empty{min-height:120px;display:grid;place-items:center;text-align:center;color:#9aa6b5;font-size:12px;line-height:1.6}
 .analysis-ai-strip{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:10px 14px;margin-bottom:10px}
 .analysis-brief-full{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:16px;margin-bottom:16px}
 .analysis-panel{border:1px solid #3a3a3a;background:#1c1d1b;border-radius:8px;padding:16px}
@@ -273,7 +293,7 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
   .app{grid-template-columns:1fr;grid-template-rows:46vh minmax(0,1fr);height:100vh}
   .sidebar{height:auto;border-right:0;border-bottom:1px solid var(--line)}
   .content{height:auto;min-height:0}
-  .filters{grid-template-columns:1fr 1fr 1fr 120px}
+  .filters{grid-template-columns:1fr 1fr 1fr 36px}
   .filters input{grid-column:1/-1}
   .hero,.brief-grid{grid-template-columns:1fr}
   .brief-stack{grid-template-columns:1fr}
@@ -285,9 +305,11 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
   .analysis-image-row{grid-template-columns:repeat(5,220px)}
   .spec-grid{grid-template-columns:1fr}
   .dashboard-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mini-overview-panel{left:12px;right:12px;top:auto;bottom:12px;width:auto;max-height:42vh}
 }
 @media (max-width:640px){
-  .filters{grid-template-columns:1fr 1fr}
+  .filters{grid-template-columns:1fr 1fr 36px}
+  .filters input{grid-column:1/-1}
   .analysis-image-page{grid-template-columns:1fr}
   .part-summary-grid{grid-template-columns:1fr}
   .dashboard-field-grid{grid-template-columns:1fr}
@@ -327,6 +349,7 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
           <option value="error">오류</option>
         </select>
         <button id="refresh" type="button">새로고침</button>
+        <button id="miniOverviewToggle" class="overview-toggle" type="button" title="전체맵" aria-label="전체맵" aria-expanded="false" onclick="toggleMiniOverview()">▦</button>
       </div>
       <div class="meta-row"><span id="count">0 styles</span><span id="updated">-</span></div>
     </div>
@@ -336,6 +359,16 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
     <div class="empty">제품 카드를 선택하면<br>R&D 상세 분석 결과가 표시됩니다.</div>
   </main>
 </div>
+<aside class="mini-overview-panel" id="miniOverviewPanel" aria-hidden="true">
+  <div class="mini-overview-head">
+    <div class="mini-overview-title">
+      <strong>전체맵</strong>
+      <span id="miniOverviewMeta">0 styles</span>
+    </div>
+    <button class="mini-overview-close" type="button" aria-label="전체 미니보기 닫기" onclick="toggleMiniOverview(false)">×</button>
+  </div>
+  <div class="mini-overview-list" id="miniOverviewList"></div>
+</aside>
 <div class="image-lightbox" id="imageLightbox" aria-hidden="true" onclick="closeImageLightbox()">
   <div class="image-lightbox-panel" onclick="event.stopPropagation()">
     <button class="image-lightbox-close" type="button" aria-label="이미지 닫기" onclick="closeImageLightbox()">×</button>
@@ -345,7 +378,7 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
 </div>
 
 <script>
-const state={allProducts:[],products:[],selected:null,run:null,mode:"local",canDelete:true,refreshTimer:null,productsSignature:"",brandSignature:""};
+const state={allProducts:[],products:[],selected:null,run:null,mode:"local",canDelete:true,refreshTimer:null,productsSignature:"",brandSignature:"",miniOverviewOpen:false};
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
 const text=value=>Array.isArray(value)?value.map(text).join(" / "):(value&&typeof value==="object"?JSON.stringify(value):String(value??""));
@@ -402,7 +435,10 @@ async function init(){
     openImageLightbox(card.dataset.lightboxUrl,card.dataset.lightboxCaption);
   });
   document.addEventListener("keydown",event=>{
-    if(event.key==="Escape") closeImageLightbox();
+    if(event.key==="Escape"){
+      closeImageLightbox();
+      toggleMiniOverview(false);
+    }
   });
   await loadStatus();
   await loadProducts();
@@ -465,6 +501,7 @@ function applyProductFilters(options={}){
   $("count").textContent=`${state.products.length} styles`;
   if(!options.preserveTime) $("updated").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
   renderList();
+  renderMiniOverview();
   if(!state.products.some(product=>product.product_id===state.selected)){
     state.selected=null;
     state.run=null;
@@ -537,6 +574,51 @@ function renderList(){
   }).join("")}</section>`).join("");
 }
 
+function toggleMiniOverview(force){
+  state.miniOverviewOpen=typeof force==="boolean"?force:!state.miniOverviewOpen;
+  const panel=$("miniOverviewPanel");
+  const button=$("miniOverviewToggle");
+  if(panel){
+    panel.classList.toggle("open",state.miniOverviewOpen);
+    panel.setAttribute("aria-hidden",state.miniOverviewOpen?"false":"true");
+  }
+  if(button){
+    button.classList.toggle("active",state.miniOverviewOpen);
+    button.setAttribute("aria-expanded",state.miniOverviewOpen?"true":"false");
+  }
+  renderMiniOverview();
+}
+
+function renderMiniOverview(){
+  const root=$("miniOverviewList");
+  const meta=$("miniOverviewMeta");
+  if(!root) return;
+  const products=state.products||[];
+  if(meta) meta.textContent=`${products.length} styles`;
+  if(!products.length){
+    root.innerHTML='<div class="mini-overview-empty">표시할 제품이 없습니다.<br>필터를 조정해 주세요.</div>';
+    return;
+  }
+  root.innerHTML=products.map(product=>{
+    const active=state.selected===product.product_id?"active":"";
+    const status=product.analysis_status==="complete"?"done":"warn";
+    const imageUrl=cacheImageUrl(product.representative_image_url,product.latest_run_updated_at||product.updated_at||product.product_id);
+    const image=imageUrl?`<img src="${esc(imageUrl)}" alt="" loading="lazy">`:"<span>No</span>";
+    const ownership=normalizeOwnership(product.ownership)||"competitor";
+    return `<button class="mini-overview-card ${active}" type="button" data-mini-product-card="${esc(product.product_id)}" onclick="selectProduct('${esc(product.product_id)}');toggleMiniOverview(false)">
+      <span class="mini-overview-thumb">${image}</span>
+      <span class="mini-overview-info">
+        <span class="mini-overview-name">${esc(product.product_name||product.display_name||product.product_id)}</span>
+        <span class="mini-overview-meta">${esc(product.brand||"브랜드 미상")} · ${esc(product.color||"컬러 미상")}</span>
+        <span class="mini-overview-pills">
+          <span class="pill ${esc(ownership)}">${esc(product.ownership_label||ownershipLabel(ownership))}</span>
+          <span class="pill ${status}">${statusLabel(product.analysis_status)}</span>
+        </span>
+      </span>
+    </button>`;
+  }).join("");
+}
+
 function groupProducts(products){
   const grouped=new Map();
   products.forEach(product=>{
@@ -596,10 +678,14 @@ async function selectProduct(productId){
 function updateProductSelectionStyles(previousId,nextId){
   if(previousId){
     document.querySelector(`[data-product-card="${cssEscape(previousId)}"]`)?.classList.remove("active");
+    document.querySelector(`[data-mini-product-card="${cssEscape(previousId)}"]`)?.classList.remove("active");
   }
   const next=document.querySelector(`[data-product-card="${cssEscape(nextId)}"]`);
-  if(next){next.classList.add("active");return;}
-  renderList();
+  const mini=document.querySelector(`[data-mini-product-card="${cssEscape(nextId)}"]`);
+  if(next) next.classList.add("active");
+  if(mini) mini.classList.add("active");
+  if(!next) renderList();
+  if(!mini) renderMiniOverview();
 }
 
 function renderProductShell(product,run){
