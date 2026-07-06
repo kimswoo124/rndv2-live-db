@@ -486,7 +486,7 @@ async function loadProducts(options={}){
     $("productList").innerHTML=`<div class="empty" style="min-height:180px">제품 목록을 불러오지 못했습니다.<br>${esc(err.message||err)}</div>`;
     return;
   }
-  const normalizedProducts=normalizeProducts(data.products||[]);
+  const normalizedProducts=filterDisplayableProducts(normalizeProducts(data.products||[]));
   const nextSignature=productsSignature(normalizedProducts,data.mode,state.canDelete);
   if(options.silent&&nextSignature===state.productsSignature) return;
   state.allProducts=normalizedProducts;
@@ -537,9 +537,65 @@ function normalizeProducts(products){
       ownership_label:product.ownership_label||ownershipLabel(normalized),
       category:product.category||metadata.category||metadata.product_type||"",
       season:product.season||metadata.season||"",
-      project_code:product.project_code||metadata.project_code||metadata.style_number||""
+      project_code:product.project_code||metadata.project_code||metadata.style_number||"",
+      image_urls:product.image_urls||metadata.image_urls||metadata.images||[]
     };
   });
+}
+
+function filterDisplayableProducts(products){
+  return products.filter(product=>hasDisplayImage(product));
+}
+
+function hasDisplayImage(product){
+  return Boolean(firstDisplayImageUrl(product.representative_image_url,product.image_urls));
+}
+
+function firstDisplayImageUrl(...values){
+  const urls=displayImageUrls(...values);
+  return urls[0]||"";
+}
+
+function displayImageUrls(...values){
+  const urls=[];
+  const seen=new Set();
+  values.forEach(value=>{
+    iterImageUrls(value).forEach(url=>{
+      if(seen.has(url)) return;
+      seen.add(url);
+      urls.push(url);
+    });
+  });
+  return urls;
+}
+
+function iterImageUrls(value){
+  if(value==null||value==="") return [];
+  if(typeof value==="string"){
+    const raw=value.trim();
+    if(!raw) return [];
+    if(raw[0]==="["||raw[0]==="{"){
+      try{return iterImageUrls(JSON.parse(raw))}catch(err){}
+    }
+    if(raw.includes(",")&&!raw.startsWith("http://")&&!raw.startsWith("https://")&&!raw.startsWith("/")){
+      return raw.split(",").flatMap(part=>iterImageUrls(part));
+    }
+    return isDisplayImageUrl(raw)?[raw]:[];
+  }
+  if(Array.isArray(value)) return value.flatMap(item=>iterImageUrls(item));
+  if(typeof value==="object"){
+    const keys=["representative_image_url","image_url","public_url","url","src","source_url","thumbnail_url","image_urls","images","assets"];
+    const urls=keys.flatMap(key=>key in value?iterImageUrls(value[key]):[]);
+    if(urls.length) return urls;
+    return Object.values(value).flatMap(item=>iterImageUrls(item));
+  }
+  return [];
+}
+
+function isDisplayImageUrl(value){
+  const lower=String(value||"").trim().toLowerCase();
+  if(!lower||["null","none","undefined","no image","n/a","na","-"].includes(lower)) return false;
+  return lower.startsWith("http://")||lower.startsWith("https://")||lower.startsWith("/data/")||lower.startsWith("data:image/")||/\.(jpe?g|png|webp|gif|avif)(\?.*)?$/.test(lower);
 }
 
 function renderList(){
@@ -1622,7 +1678,7 @@ async function staticSupabaseApi(path,options={}){
       params.set("select",baseSelect);
       rawRows=await request("product_cards",params);
     }
-    let rows=normalizeProducts(rawRows);
+    let rows=filterDisplayableProducts(normalizeProducts(rawRows));
     const ownership=parsed.searchParams.get("ownership")||"";
     if(ownership) rows=rows.filter(row=>row.ownership===ownership);
     const needle=(parsed.searchParams.get("q")||"").trim().toLowerCase();
@@ -1675,7 +1731,8 @@ function productsSignature(products,mode,canDelete){
       product.analysis_count,
       product.latest_run_id,
       product.latest_run_updated_at,
-      product.representative_image_url
+      product.representative_image_url,
+      product.image_urls
     ])
   });
 }

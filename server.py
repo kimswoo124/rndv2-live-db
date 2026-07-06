@@ -77,6 +77,7 @@ DATA_DIR = Path(os.environ.get("RND_DATA_DIR", str(RND_ROOT / "20_Data")))
 PRODUCTS_DIR = DATA_DIR / "products"
 STATIC_DIR = TOOL_ROOT / "static"
 HIDDEN_PRODUCTS_PATH = DATA_DIR / "index" / "products_rnd_viewer_hidden.json"
+HIDE_DATA_ONLY_PRODUCTS = os.environ.get("PRODUCTS_RND_HIDE_DATA_ONLY", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
@@ -120,6 +121,7 @@ async def status() -> dict[str, Any]:
         "products_dir": str(PRODUCTS_DIR),
         "postgres_schema": PG_SCHEMA if postgres_enabled() else "",
         "postgres_error": PG_LAST_ERROR,
+        "hide_data_only_products": HIDE_DATA_ONLY_PRODUCTS,
     }
 
 
@@ -275,6 +277,7 @@ def postgres_products(q: str, brand: str, ownership: str, status: str, updated_a
     cards = [postgres_product_card(row) for row in rows]
     hidden = local_hidden_products()
     cards = [card for card in cards if card.get("product_id") not in hidden]
+    cards = filter_displayable_products(cards)
     if q:
         needle = q.lower()
         cards = [
@@ -345,10 +348,14 @@ def postgres_product_card(row: dict[str, Any]) -> dict[str, Any]:
     source_url = row.get("final_url") or row.get("source_url") or local_card.get("source_url", "") if local_card else row.get("final_url") or row.get("source_url") or ""
     # 이미지 URL 우선순위: DB(S3) > 로컬 파일시스템 > local_card
     db_rep_url = row.get("db_representative_image_url") or ""
+    db_image_urls = row.get("db_image_urls")
+    asset_urls = display_image_urls([asset.get("public_url") or asset.get("url") for asset in assets])
     representative_image_url = (
-        db_rep_url
-        or (representative.get("url") if representative else None)
-        or (local_card.get("representative_image_url", "") if local_card else "")
+        first_display_image_url(db_rep_url)
+        or first_display_image_url(db_image_urls)
+        or first_display_image_url(asset_urls)
+        or first_display_image_url(representative.get("url") if representative else "")
+        or first_display_image_url(local_card.get("representative_image_url", "") if local_card else "")
     )
     representative_asset_id = representative.get("asset_id") if representative else local_card.get("representative_asset_id", "") if local_card else ""
     return {
@@ -367,6 +374,7 @@ def postgres_product_card(row: dict[str, Any]) -> dict[str, Any]:
         "latest_run_updated_at": row.get("analysis_uploaded_at") or row.get("analysis_created_at") or row.get("product_uploaded_at") or "",
         "analysis_status": "complete" if row.get("analysis_id") else "not_analyzed",
         "representative_image_url": representative_image_url,
+        "image_urls": display_image_urls(db_image_urls, asset_urls),
         "representative_asset_id": representative_asset_id,
         "ownership": ownership,
         "ownership_label": ownership_label(ownership),
@@ -619,6 +627,7 @@ def supabase_products(auth_header: str, q: str, brand: str, ownership: str, stat
         fallback_filters = {**filters, "select": base_select}
         rows = supabase_request("product_cards", auth_header, fallback_filters)
     rows = [enrich_supabase_product(row) for row in rows]
+    rows = filter_displayable_products(rows)
     if ownership:
         rows = [row for row in rows if row.get("ownership") == ownership]
     if q:
@@ -651,7 +660,87 @@ def enrich_supabase_product(row: dict[str, Any]) -> dict[str, Any]:
         "category": metadata.get("category") or metadata.get("product_type") or "",
         "season": metadata.get("season") or "",
         "project_code": metadata.get("project_code") or metadata.get("style_number") or "",
+        "image_urls": row.get("image_urls") or metadata.get("image_urls") or metadata.get("images") or [],
     }
+
+
+def filter_displayable_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not HIDE_DATA_ONLY_PRODUCTS:
+        return products
+    return [product for product in products if product_has_display_image(product)]
+
+
+def product_has_display_image(product: dict[str, Any]) -> bool:
+    return bool(first_display_image_url(product.get("representative_image_url"), product.get("image_urls")))
+
+
+def first_display_image_url(*values: Any) -> str:
+    urls = display_image_urls(*values)
+    return urls[0] if urls else ""
+
+
+def display_image_urls(*values: Any) -> list[str]:
+    urls: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for url in iter_image_urls(value):
+            if url in seen:
+                continue
+            seen.add(url)
+            urls.append(url)
+    return urls
+
+
+def iter_image_urls(value: Any) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+        if raw[:1] in "[{":
+            try:
+                return iter_image_urls(json.loads(raw))
+            except Exception:
+                pass
+        if "," in raw and not raw.startswith(("http://", "https://", "/")):
+            return [url for part in raw.split(",") for url in iter_image_urls(part)]
+        return [raw] if is_display_image_url(raw) else []
+    if isinstance(value, (list, tuple, set)):
+        return [url for item in value for url in iter_image_urls(item)]
+    if isinstance(value, dict):
+        preferred_keys = [
+            "representative_image_url",
+            "image_url",
+            "public_url",
+            "url",
+            "src",
+            "source_url",
+            "thumbnail_url",
+            "image_urls",
+            "images",
+            "assets",
+        ]
+        urls: list[str] = []
+        for key in preferred_keys:
+            if key in value:
+                urls.extend(iter_image_urls(value.get(key)))
+        if urls:
+            return urls
+        return [url for item in value.values() for url in iter_image_urls(item)]
+    return []
+
+
+def is_display_image_url(value: str) -> bool:
+    text = value.strip()
+    if not text:
+        return False
+    lower = text.lower()
+    if lower in {"null", "none", "undefined", "no image", "n/a", "na", "-"}:
+        return False
+    if lower.startswith(("http://", "https://", "/data/", "data:image/")):
+        return True
+    return lower.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"))
 
 
 def normalize_ownership_value(value: Any) -> str:
@@ -1067,6 +1156,7 @@ def write_local_hidden_products(hidden: set[str]) -> None:
 
 def local_products(q: str, brand: str, ownership: str, status: str, updated_after: str, department_id: str) -> list[dict[str, Any]]:
     cards = [product_card(product_dir, RND_ROOT, DATA_DIR) for product_dir in product_dirs()]
+    cards = filter_displayable_products(cards)
     if q:
         needle = q.lower()
         cards = [
