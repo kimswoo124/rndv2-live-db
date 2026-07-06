@@ -292,7 +292,7 @@ def postgres_products(q: str, brand: str, ownership: str, status: str, updated_a
         ]
     if brand:
         cards = [card for card in cards if card.get("brand") == brand]
-    if ownership:
+    if ownership and not truthy(recent):
         cards = [card for card in cards if card.get("ownership") == ownership]
     if status:
         cards = [card for card in cards if card.get("analysis_status") == status]
@@ -639,7 +639,7 @@ def supabase_products(auth_header: str, q: str, brand: str, ownership: str, stat
         rows = supabase_request("product_cards", auth_header, fallback_filters)
     rows = [enrich_supabase_product(row) for row in rows]
     rows = filter_displayable_products(rows)
-    if ownership:
+    if ownership and not truthy(recent):
         rows = [row for row in rows if row.get("ownership") == ownership]
     if q:
         needle = q.lower()
@@ -1191,7 +1191,7 @@ def local_products(q: str, brand: str, ownership: str, status: str, updated_afte
         ]
     if brand:
         cards = [card for card in cards if card.get("brand") == brand]
-    if ownership:
+    if ownership and not truthy(recent):
         cards = [card for card in cards if card.get("ownership") == ownership]
     if status:
         cards = [card for card in cards if card.get("analysis_status") == status]

@@ -465,10 +465,15 @@ async function loadStatus(){
 }
 
 function getOwnership(){
+  if(state.recentOnly) return "";
   const active=document.querySelector(".own-btn[data-val].active");
   return active?active.dataset.val||"":"";
 }
 function setOwnership(btn){
+  if(state.recentOnly){
+    state.recentOnly=false;
+    $("recentToggle").classList.remove("active");
+  }
   document.querySelectorAll(".own-btn[data-val]").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
   loadProducts();
@@ -476,6 +481,9 @@ function setOwnership(btn){
 function toggleRecent(){
   state.recentOnly=!state.recentOnly;
   $("recentToggle").classList.toggle("active",state.recentOnly);
+  if(state.recentOnly){
+    document.querySelectorAll(".own-btn[data-val]").forEach(b=>b.classList.toggle("active",b.dataset.val===""));
+  }
   loadProducts();
 }
 
@@ -1697,10 +1705,11 @@ async function staticSupabaseApi(path,options={}){
     }
     let rows=filterDisplayableProducts(normalizeProducts(rawRows));
     const ownership=parsed.searchParams.get("ownership")||"";
-    if(ownership) rows=rows.filter(row=>row.ownership===ownership);
+    const recentOnly=isTruthyParam(parsed.searchParams.get("recent"));
+    if(ownership&&!recentOnly) rows=rows.filter(row=>row.ownership===ownership);
     const needle=(parsed.searchParams.get("q")||"").trim().toLowerCase();
     if(needle) rows=rows.filter(row=>["brand","product_name","display_name","color","sku","ownership_label","category","season","project_code"].map(key=>String(row[key]||"")).join(" ").toLowerCase().includes(needle));
-    if(isTruthyParam(parsed.searchParams.get("recent"))) rows=recentProductRows(rows);
+    if(recentOnly) rows=recentProductRows(rows);
     return {products:rows,mode:"supabase"};
   }
   const productRunsMatch=parsed.pathname.match(/\/api\/products\/([^/]+)\/runs$/);
