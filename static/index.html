@@ -325,6 +325,7 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
 .own-btn.active[data-val=""]{border-color:rgba(103,212,232,.55);color:var(--cyan);background:rgba(103,212,232,.1)}
 .own-btn.active[data-val="internal"]{border-color:rgba(103,212,232,.55);color:var(--cyan);background:rgba(103,212,232,.1)}
 .own-btn.active[data-val="competitor"]{border-color:rgba(232,186,98,.55);color:var(--amber);background:rgba(232,186,98,.1)}
+.own-btn.recent-btn.active{border-color:rgba(121,224,171,.65);color:var(--green);background:rgba(121,224,171,.1)}
 </style>
 </head>
 <body>
@@ -339,6 +340,7 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
         <button class="own-btn active" data-val="" type="button" onclick="setOwnership(this)">전체보기</button>
         <button class="own-btn" data-val="internal" type="button" onclick="setOwnership(this)">자사</button>
         <button class="own-btn" data-val="competitor" type="button" onclick="setOwnership(this)">타사</button>
+        <button class="own-btn recent-btn" id="recentToggle" type="button" onclick="toggleRecent()">최근등록</button>
       </div>
       <div class="filters">
         <input id="search" type="search" placeholder="브랜드, 제품명, SKU, 컬러 검색">
@@ -381,7 +383,7 @@ pre{margin:0;border:1px solid var(--line);background:#090b0f;border-radius:8px;p
 </div>
 
 <script>
-const state={allProducts:[],products:[],selected:null,run:null,mode:"local",canDelete:true,refreshTimer:null,productsSignature:"",brandSignature:"",miniOverviewOpen:false};
+const state={allProducts:[],products:[],selected:null,run:null,mode:"local",canDelete:true,refreshTimer:null,productsSignature:"",brandSignature:"",miniOverviewOpen:false,recentOnly:false};
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
 const text=value=>Array.isArray(value)?value.map(text).join(" / "):(value&&typeof value==="object"?JSON.stringify(value):String(value??""));
@@ -463,12 +465,17 @@ async function loadStatus(){
 }
 
 function getOwnership(){
-  const active=document.querySelector(".own-btn.active");
+  const active=document.querySelector(".own-btn[data-val].active");
   return active?active.dataset.val||"":"";
 }
 function setOwnership(btn){
-  document.querySelectorAll(".own-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".own-btn[data-val]").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
+  loadProducts();
+}
+function toggleRecent(){
+  state.recentOnly=!state.recentOnly;
+  $("recentToggle").classList.toggle("active",state.recentOnly);
   loadProducts();
 }
 
@@ -478,6 +485,7 @@ async function loadProducts(options={}){
   const ownership=getOwnership();
   if(ownership) params.set("ownership",ownership);
   if($("status").value) params.set("status",$("status").value);
+  if(state.recentOnly) params.set("recent","1");
   let data;
   try{
     data=await api(`/api/products?${params.toString()}`);
@@ -501,7 +509,7 @@ async function loadProducts(options={}){
 function applyProductFilters(options={}){
   const brand=$("brand").value;
   state.products=brand?state.allProducts.filter(product=>(product.brand||"")===brand):state.allProducts.slice();
-  $("count").textContent=`${state.products.length} styles`;
+  $("count").textContent=`${state.recentOnly?"최근등록 ":""}${state.products.length} styles`;
   if(!options.preserveTime) $("updated").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
   renderList();
   renderMiniOverview();
@@ -538,7 +546,8 @@ function normalizeProducts(products){
       category:product.category||metadata.category||metadata.product_type||"",
       season:product.season||metadata.season||"",
       project_code:product.project_code||metadata.project_code||metadata.style_number||"",
-      image_urls:product.image_urls||metadata.image_urls||metadata.images||[]
+      image_urls:product.image_urls||metadata.image_urls||metadata.images||[],
+      registered_at:product.registered_at||metadata.registered_at||product.created_at||product.latest_run_updated_at||""
     };
   });
 }
@@ -596,6 +605,14 @@ function isDisplayImageUrl(value){
   const lower=String(value||"").trim().toLowerCase();
   if(!lower||["null","none","undefined","no image","n/a","na","-"].includes(lower)) return false;
   return lower.startsWith("http://")||lower.startsWith("https://")||lower.startsWith("/data/")||lower.startsWith("data:image/")||/\.(jpe?g|png|webp|gif|avif)(\?.*)?$/.test(lower);
+}
+
+function isTruthyParam(value){
+  return ["1","true","yes","on","recent"].includes(String(value||"").trim().toLowerCase());
+}
+
+function recentProductRows(products,limit=20){
+  return products.slice().sort((a,b)=>String(b.registered_at||b.latest_run_updated_at||b.updated_at||"").localeCompare(String(a.registered_at||a.latest_run_updated_at||a.updated_at||""))).slice(0,limit);
 }
 
 function renderList(){
@@ -1682,10 +1699,9 @@ async function staticSupabaseApi(path,options={}){
     const ownership=parsed.searchParams.get("ownership")||"";
     if(ownership) rows=rows.filter(row=>row.ownership===ownership);
     const needle=(parsed.searchParams.get("q")||"").trim().toLowerCase();
-    return {
-      products:needle?rows.filter(row=>["brand","product_name","display_name","color","sku","ownership_label","category","season","project_code"].map(key=>String(row[key]||"")).join(" ").toLowerCase().includes(needle)):rows,
-      mode:"supabase"
-    };
+    if(needle) rows=rows.filter(row=>["brand","product_name","display_name","color","sku","ownership_label","category","season","project_code"].map(key=>String(row[key]||"")).join(" ").toLowerCase().includes(needle));
+    if(isTruthyParam(parsed.searchParams.get("recent"))) rows=recentProductRows(rows);
+    return {products:rows,mode:"supabase"};
   }
   const productRunsMatch=parsed.pathname.match(/\/api\/products\/([^/]+)\/runs$/);
   if(productRunsMatch){
@@ -1732,7 +1748,8 @@ function productsSignature(products,mode,canDelete){
       product.latest_run_id,
       product.latest_run_updated_at,
       product.representative_image_url,
-      product.image_urls
+      product.image_urls,
+      product.registered_at
     ])
   });
 }

@@ -78,6 +78,10 @@ PRODUCTS_DIR = DATA_DIR / "products"
 STATIC_DIR = TOOL_ROOT / "static"
 HIDDEN_PRODUCTS_PATH = DATA_DIR / "index" / "products_rnd_viewer_hidden.json"
 HIDE_DATA_ONLY_PRODUCTS = os.environ.get("PRODUCTS_RND_HIDE_DATA_ONLY", "1").strip().lower() not in {"0", "false", "no", "off"}
+try:
+    RECENT_PRODUCT_LIMIT = max(1, int(os.environ.get("PRODUCTS_RND_RECENT_LIMIT", "20")))
+except ValueError:
+    RECENT_PRODUCT_LIMIT = 20
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
@@ -122,6 +126,7 @@ async def status() -> dict[str, Any]:
         "postgres_schema": PG_SCHEMA if postgres_enabled() else "",
         "postgres_error": PG_LAST_ERROR,
         "hide_data_only_products": HIDE_DATA_ONLY_PRODUCTS,
+        "recent_product_limit": RECENT_PRODUCT_LIMIT,
     }
 
 
@@ -133,13 +138,14 @@ async def products(
     ownership: str = "",
     status: str = "",
     updated_after: str = "",
+    recent: str = "",
     x_department_id: str = Header("", alias="X-Department-Id"),
 ) -> dict[str, Any]:
     if postgres_enabled():
-        return postgres_products(q, brand, ownership, status, updated_after)
+        return postgres_products(q, brand, ownership, status, updated_after, recent)
     if supabase_enabled():
-        return supabase_products(auth_header(request), q, brand, ownership, status, updated_after)
-    items = local_products(q=q, brand=brand, ownership=ownership, status=status, updated_after=updated_after, department_id=x_department_id)
+        return supabase_products(auth_header(request), q, brand, ownership, status, updated_after, recent)
+    items = local_products(q=q, brand=brand, ownership=ownership, status=status, updated_after=updated_after, recent=recent, department_id=x_department_id)
     return {"products": items, "mode": "local"}
 
 
@@ -178,7 +184,7 @@ async def knowledge_index(
         return postgres_knowledge_index(q=q, brand=brand, ownership=ownership, status=status)
     if supabase_enabled():
         return supabase_knowledge_index(auth_header(request), q=q, brand=brand, ownership=ownership, status=status)
-    cards = local_products(q="", brand=brand, ownership=ownership, status=status, updated_after="", department_id=x_department_id)
+    cards = local_products(q="", brand=brand, ownership=ownership, status=status, updated_after="", recent="", department_id=x_department_id)
     runs_by_product: dict[str, dict[str, Any] | None] = {}
     for card in cards:
         product_dir = safe_product_dir(card["product_id"])
@@ -272,7 +278,7 @@ def postgres_fetchone(sql: str, params: tuple[Any, ...] = ()) -> dict[str, Any] 
             return dict(row) if row else None
 
 
-def postgres_products(q: str, brand: str, ownership: str, status: str, updated_after: str) -> dict[str, Any]:
+def postgres_products(q: str, brand: str, ownership: str, status: str, updated_after: str, recent: str = "") -> dict[str, Any]:
     rows = postgres_product_rows()
     cards = [postgres_product_card(row) for row in rows]
     hidden = local_hidden_products()
@@ -292,7 +298,11 @@ def postgres_products(q: str, brand: str, ownership: str, status: str, updated_a
         cards = [card for card in cards if card.get("analysis_status") == status]
     if updated_after:
         cards = [card for card in cards if str(card.get("latest_run_updated_at") or "") >= updated_after]
-    return {"products": sorted(cards, key=lambda item: str(item.get("latest_run_updated_at") or ""), reverse=True), "mode": "postgres"}
+    if truthy(recent):
+        cards = recent_product_cards(cards)
+    else:
+        cards = sorted(cards, key=lambda item: str(item.get("latest_run_updated_at") or ""), reverse=True)
+    return {"products": cards, "mode": "postgres"}
 
 
 def postgres_product_rows(product_id: str = "") -> list[dict[str, Any]]:
@@ -372,6 +382,7 @@ def postgres_product_card(row: dict[str, Any]) -> dict[str, Any]:
         "analysis_count": int(row.get("analysis_count") or 0),
         "latest_run_id": row.get("analysis_id") or "",
         "latest_run_updated_at": row.get("analysis_uploaded_at") or row.get("analysis_created_at") or row.get("product_uploaded_at") or "",
+        "registered_at": row.get("product_uploaded_at") or row.get("captured_at") or row.get("analysis_uploaded_at") or row.get("analysis_created_at") or "",
         "analysis_status": "complete" if row.get("analysis_id") else "not_analyzed",
         "representative_image_url": representative_image_url,
         "image_urls": display_image_urls(db_image_urls, asset_urls),
@@ -608,7 +619,7 @@ def supabase_request(path: str, auth_header: str, query: dict[str, str] | None =
         return json.loads(response.read().decode("utf-8"))
 
 
-def supabase_products(auth_header: str, q: str, brand: str, ownership: str, status: str, updated_after: str) -> dict[str, Any]:
+def supabase_products(auth_header: str, q: str, brand: str, ownership: str, status: str, updated_after: str, recent: str = "") -> dict[str, Any]:
     base_select = "product_id,style,brand,product_name,display_name,color,sku,price,currency,source_url,analysis_count,latest_run_id,latest_run_updated_at,analysis_status,representative_image_url,tags"
     filters = {
         "select": f"{base_select},metadata",
@@ -636,6 +647,8 @@ def supabase_products(auth_header: str, q: str, brand: str, ownership: str, stat
             row for row in rows
             if needle in " ".join(str(row.get(k, "")) for k in ["brand", "product_name", "display_name", "color", "sku", "ownership_label", "category", "season", "project_code", "last_name"]).lower()
         ]
+    if truthy(recent):
+        rows = recent_product_cards(rows)
     return {"products": rows, "mode": "supabase"}
 
 
@@ -661,6 +674,7 @@ def enrich_supabase_product(row: dict[str, Any]) -> dict[str, Any]:
         "season": metadata.get("season") or "",
         "project_code": metadata.get("project_code") or metadata.get("style_number") or "",
         "image_urls": row.get("image_urls") or metadata.get("image_urls") or metadata.get("images") or [],
+        "registered_at": row.get("registered_at") or row.get("created_at") or row.get("latest_run_updated_at") or "",
     }
 
 
@@ -741,6 +755,18 @@ def is_display_image_url(value: str) -> bool:
     if lower.startswith(("http://", "https://", "/data/", "data:image/")):
         return True
     return lower.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"))
+
+
+def truthy(value: Any) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on", "recent"}
+
+
+def recent_product_cards(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(products, key=recent_product_sort_key, reverse=True)[:RECENT_PRODUCT_LIMIT]
+
+
+def recent_product_sort_key(product: dict[str, Any]) -> str:
+    return str(product.get("registered_at") or product.get("latest_run_updated_at") or product.get("updated_at") or "")
 
 
 def normalize_ownership_value(value: Any) -> str:
@@ -1154,7 +1180,7 @@ def write_local_hidden_products(hidden: set[str]) -> None:
     )
 
 
-def local_products(q: str, brand: str, ownership: str, status: str, updated_after: str, department_id: str) -> list[dict[str, Any]]:
+def local_products(q: str, brand: str, ownership: str, status: str, updated_after: str, recent: str, department_id: str) -> list[dict[str, Any]]:
     cards = [product_card(product_dir, RND_ROOT, DATA_DIR) for product_dir in product_dirs()]
     cards = filter_displayable_products(cards)
     if q:
@@ -1174,6 +1200,8 @@ def local_products(q: str, brand: str, ownership: str, status: str, updated_afte
     if department_id:
         for card in cards:
             card["department_scope"] = department_id
+    if truthy(recent):
+        return recent_product_cards(cards)
     return sorted(cards, key=lambda item: item.get("latest_run_updated_at") or "", reverse=True)
 
 
